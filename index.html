@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Flowchart Studio is een lokale planningstool voor campagnes, flights en tactics." />
+  <title>Flowchart Studio</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="ttip" id="ttip" role="tooltip" aria-hidden="true"></div>
+<input type="file" id="FI" accept=".json" style="display:none" aria-hidden="true">
+<div id="W"><span style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:6px 16px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:24px;display:inline-block">WPP MEDIA</span><h1 class="wtt">Flowchart Studio</h1><p class="wt2">Campagne &#8594; Flight &#8594; Tactic</p><div class="wa"><button class="wbtn wbl" id="wl">&#128194; JSON laden</button><button class="wbtn wbn" id="wn">&#10024; Nieuw</button></div><div class="wdr" id="wd"><div style="font-size:36px;margin-bottom:6px">&#128196;</div><p style="font-size:11px;color:rgba(255,255,255,.5)">Of <b style="color:rgba(255,255,255,.8)">sleep een .json</b> hierheen</p></div><button class="wre" id="wr">&#128260; Vorige sessie</button></div>
+<div id="A">
+  <div class="topbar">
+    <div class="tb-left">
+      <div style="display:flex;align-items:center"><h1>Flowchart Studio</h1><span class="badge">v13</span></div>
+      <div class="tb-client"><span class="tb-client-label">Klant</span><input id="clientIn" type="text" placeholder="Klantnaam..." value=""></div>
+    </div>
+    <div class="tb-right">
+      <input class="tb-in tb-yr" id="yearIn" type="number" value="2026" min="2020" max="2035" title="Jaar">
+      <input class="tb-in" id="authIn" type="text" placeholder="Bewerker" style="width:80px">
+      <button class="tb-btn save" id="btnSave">&#128190; Opslaan</button>
+      <button class="tb-btn load" id="btnLoad">&#128194; Laden</button>
+      <button class="tb-btn" id="btnCSV">CSV</button>
+      <button class="tb-btn" id="btnXLS">XLS</button>
+      <button class="tb-btn" id="btnPDF">PDF</button>
+      <button class="tb-btn" id="btnSett">&#9881;&#65039;</button>
+      <span class="tb-status" id="autoSaveStatus">&#8211;</span>
+    </div>
+  </div>
+  <div class="summary" id="summaryBar"></div>
+  <div class="gantt-wrap" id="ganttWrap"><div class="gantt" id="gantt"></div></div>
+  <div class="legend" id="legend"></div>
+</div>
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"><div class="modal-head"><div class="modal-nav" id="modalNav"></div><button class="modal-close" id="modalClose">&#10005;</button></div><div class="modal-body" id="modalBody"></div></div></div>
+<div class="modal-bg" id="settBg"><div class="modal wide"><div class="modal-head"><div class="modal-nav"><strong>&#9881;&#65039; Settings</strong></div><button class="modal-close" id="settClose">&#10005;</button></div><div class="modal-body" id="settBody"></div></div></div>
+<div class="modal-bg" id="cfmBg"><div class="cfm-box"><div class="cfm-icon" id="cfmIcon"></div><div class="cfm-msg" id="cfmMsg"></div><div class="cfm-btns"><button class="mbtn" id="cfmNo">Annuleer</button><button class="mbtn pri" id="cfmYes">Akkoord</button></div></div></div>
+<script src="app.js" defer></script>
+</body>
+</html>

@@ -1,11 +1,31 @@
-# Ignore VS Code workspace files
-.vscode/
+# Node modules and logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-lock.yaml
 
-# Ignore temporary files
-*.log
+# Editor and IDE directories
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Temporary files
 *.tmp
 *.temp
+*.log
 
-# Ignore system files
-Thumbs.db
-.DS_Store
+# Mac-specific
+.Spotlight-V100
+.Trashes
+
+# Windows thumbnail cache
+ehthumbs.db
+Desktop.ini
+
+# Generated local files
+split_html.py
