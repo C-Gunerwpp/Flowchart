@@ -46,11 +46,19 @@
       { id: 'afgerond', name: 'Afgerond', color: '#94A3B8' },
     ],
 
-    PALETTE: [
-      '#000050', '#001A8C', '#0026C5', '#1E40AF', '#3B82F6',
-      '#60A5FA', '#93C5FD', '#BFDBFE', '#0D9488', '#14B8A6',
-      '#A2D2BF', '#1E293B', '#475569', '#94A3B8', '#CBD5E1',
+    /* Kleurgroepen — WPP Media + de vier agentschappen + accenten/neutraal.
+       Elke groep heeft meerdere shades (donker → licht) zodat er onderscheid
+       blijft binnen één bureau-kleur. */
+    PALETTE_GROUPS: [
+      { name: 'WPP Media',       colors: ['#000050','#001A8C','#0026C5','#1E40AF','#3B82F6','#60A5FA','#93C5FD','#BFDBFE'] },
+      { name: 'EssenceMediacom', colors: ['#831843','#9D174D','#BE185D','#DB2777','#EC4899','#F472B6','#F9A8D4','#FBCFE8'] },
+      { name: 'Mindshare',       colors: ['#7C2D12','#C2410C','#EA580C','#F97316','#FB923C','#FDBA74'] },
+      { name: 'Wavemaker',       colors: ['#4C1D95','#6D28D9','#7C3AED','#8B5CF6','#A78BFA','#C4B5FD'] },
+      { name: 'Accent',          colors: ['#065F46','#0D9488','#14B8A6','#2DD4BF','#5EEAD4','#A2D2BF'] },
+      { name: 'Neutraal',        colors: ['#0F172A','#1E293B','#475569','#94A3B8','#CBD5E1','#E2E8F0'] },
     ],
+    /* Vlakke lijst voor backwards-compat (bestaande logica gebruikt PALETTE). */
+    get PALETTE() { return this.PALETTE_GROUPS.flatMap((g) => g.colors); },
 
     DEFAULT_YEAR: 2026,
     DEFAULT_BASE_BUDGET: 1700000,

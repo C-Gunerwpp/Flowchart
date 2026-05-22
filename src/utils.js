@@ -63,6 +63,22 @@
     return new Date().toISOString().substring(0, 10);
   }
 
+  /** Huidig ISO-weeknummer voor het actieve jaar, of null als vandaag buiten dat jaar valt. */
+  function getCurrentWeek() {
+    const now = new Date();
+    if (now.getFullYear() !== FS.state.year) return null;
+    const iso = now.toISOString().substring(0, 10);
+    return dateToWeek(iso);
+  }
+
+  /** Maandindex (0-11) voor het opgegeven ISO-weeknummer in het actieve jaar.
+   *  Gebruikt de donderdag van die week (ISO-representatieve dag). */
+  function weekToMonth(week) {
+    const d = new Date(`${weekToDate(week)}T12:00:00`);
+    d.setDate(d.getDate() + 3); // maandag -> donderdag
+    return d.getMonth();
+  }
+
   /** € 1.234 (afgerond). */
   function formatCurrency(value) {
     return `€${Math.round(value).toLocaleString('nl-NL')}`;
@@ -155,6 +171,8 @@
     debounce,
     dateToWeek,
     weekToDate,
+    weekToMonth,
+    getCurrentWeek,
     today,
     formatCurrency,
     formatCurrency2,

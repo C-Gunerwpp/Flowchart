@@ -244,3 +244,113 @@ body{font-family:'Inter',sans-serif;background:#0a0e2a;color:#fff;min-height:100
 @media (max-width: 720px){
   .ss-body .fee-grid{grid-template-columns:repeat(2,1fr)}
 }
+
+
+/* =====================================================
+   Usability v2: zoom-schaling, maandband, vandaag-lijn,
+   export-dropdown
+   ===================================================== */
+
+/* Zoom — alle font-sizes en kolombreedtes binnen de gantt
+   schalen met --gz. Default 1.0, ingesteld vanuit JS. */
+.gantt{--gz:1;position:relative}
+
+.gantt .gh-label,.gantt .g-label{width:calc(220px * var(--gz));min-width:calc(220px * var(--gz))}
+.gantt .gh-budget,.gantt .g-budget{width:calc(80px * var(--gz));min-width:calc(80px * var(--gz));left:calc(220px * var(--gz))}
+.gantt .gh-weeks{min-width:calc(52 * 20px * var(--gz))}
+.gantt .g-bars{min-width:calc(52 * 20px * var(--gz))}
+
+/* Sticky linker kolommen moeten BOVEN de bars liggen, anders schijnen
+   de bars erdoorheen als je horizontaal scrollt. .g-bar staat op z:2,
+   :hover op z:5 — labels en budgets dus daarboven.
+   Belangrijk: de originele .g-label declaratie eindigt op
+   `position:relative`, waardoor sticky werd uitgeschakeld. We forceren
+   sticky hier opnieuw (heeft hogere specificiteit dankzij `.gantt`). */
+.gantt .g-label{position:sticky;left:0;z-index:4}
+.gantt .g-budget{position:sticky;left:calc(220px * var(--gz));z-index:4}
+
+.gantt .g-head-q{font-size:calc(10px * var(--gz));height:calc(26px * var(--gz))}
+.gantt .g-head-w{font-size:calc(7px * var(--gz));height:calc(22px * var(--gz));top:calc(26px * var(--gz) + 18px * var(--gz))}
+.gantt .g-head-q .gh-weeks > div{height:calc(26px * var(--gz))}
+.gantt .g-head-w .gh-weeks > div{height:calc(22px * var(--gz))}
+.gantt .g-head-w .gh-label,.gantt .g-head-w .gh-budget{font-size:calc(8px * var(--gz))}
+
+.gantt .g-label{font-size:calc(9px * var(--gz))}
+.gantt .g-sub .g-label{font-size:calc(8px * var(--gz))}
+.gantt .g-tac .g-label{font-size:calc(7px * var(--gz))}
+.gantt .g-foot .g-label{font-size:calc(8px * var(--gz))}
+
+.gantt .g-budget{font-size:calc(9px * var(--gz))}
+.gantt .g-sub .g-budget{font-size:calc(8px * var(--gz))}
+.gantt .g-tac .g-budget{font-size:calc(7px * var(--gz))}
+
+.gantt .g-bar{font-size:calc(7.5px * var(--gz));min-height:calc(20px * var(--gz))}
+.gantt .g-bar .bn{font-size:calc(7.5px * var(--gz))}
+.gantt .g-bar .bb{font-size:calc(6.5px * var(--gz))}
+
+.gantt .g-row{min-height:calc(34px * var(--gz))}
+.gantt .g-row.g-camp{min-height:calc(52px * var(--gz))}
+.gantt .g-row.g-sub{min-height:calc(30px * var(--gz))}
+.gantt .g-row.g-tac{min-height:calc(26px * var(--gz))}
+.gantt .g-row.g-foot{min-height:calc(28px * var(--gz))}
+
+.gantt .g-sec{font-size:calc(8px * var(--gz))}
+.gantt .g-row.g-tot .g-label,.gantt .g-row.g-tot .g-budget,
+.gantt .g-row.g-jaar .g-label,.gantt .g-row.g-jaar .g-budget,
+.gantt .g-row.g-rest .g-label,.gantt .g-row.g-rest .g-budget{font-size:calc(9px * var(--gz))}
+.gantt .g-row.g-crea .g-label,.gantt .g-row.g-crea .g-budget,
+.gantt .g-row.g-tool .g-label,.gantt .g-row.g-tool .g-budget{font-size:calc(8px * var(--gz))}
+.gantt .g-count{font-size:calc(7px * var(--gz))}
+.gantt .g-toggle{font-size:calc(9px * var(--gz))}
+
+/* Maand-band tussen quarters en weeknummers */
+.gantt .g-head-m{display:flex;line-height:1;background:#001A8C;color:#fff;font-weight:700;font-size:calc(8px * var(--gz));position:sticky;top:calc(26px * var(--gz));z-index:6;height:calc(18px * var(--gz));border-top:1px solid rgba(255,255,255,.08)}
+.gantt .g-head-m .gh-label{background:#001A8C}
+.gantt .g-head-m .gh-budget{background:#001A8C}
+.gantt .g-head-m .gh-weeks > div{height:calc(18px * var(--gz))}
+.gantt .gh-m{text-align:center;display:flex;align-items:center;justify-content:center;border-left:1px solid rgba(255,255,255,.12);text-transform:uppercase;letter-spacing:.5px}
+.gantt .gh-m:first-child{border-left:none}
+
+/* Huidige-week-indicator: kop-cel + verticale lijn over alle rijen */
+.gantt .gh-nw{background:rgba(220,38,38,.35)!important;color:#fff;font-weight:800;box-shadow:inset 0 -2px 0 #DC2626}
+.g-now-line{position:absolute;top:0;bottom:0;width:2px;background:#DC2626;pointer-events:none;z-index:5;box-shadow:0 0 0 1px rgba(255,255,255,.45)}
+.g-now-line::before{content:'NU';position:absolute;top:calc(26px * var(--gz) + 1px);left:3px;background:#DC2626;color:#fff;font-size:calc(7px * var(--gz));font-weight:800;padding:1px 5px;border-radius:3px;white-space:nowrap;letter-spacing:.5px;box-shadow:0 2px 6px rgba(220,38,38,.4)}
+
+/* Topbar: toestaan dat knoppen wrappen op kleine schermen */
+.tb-right{flex-wrap:wrap;justify-content:flex-end}
+
+/* Jaarveld: breder zodat "2026" niet wordt afgekapt + spinnerknoppen weg. */
+.tb-yr{width:64px!important;padding:4px 6px!important;-moz-appearance:textfield}
+.tb-yr::-webkit-outer-spin-button,
+.tb-yr::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+/* ===== Kleurkiezer (collapsible) =====
+   Standaard alleen één kleurvlakje + label zichtbaar; klikken klapt
+   de groepen uit. Houdt het modal-venster rustig zolang je niet
+   actief een kleur kiest. */
+.pal-pop{position:relative;display:inline-block;margin-top:4px}
+.pal-trigger{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1.5px solid #E5E7EB;border-radius:8px;padding:4px 10px 4px 4px;font:600 11px/1 'Inter',sans-serif;color:#000050;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.pal-trigger:hover{border-color:#0026C5}
+.pal-pop[data-open="1"] .pal-trigger{border-color:#0026C5;box-shadow:0 0 0 3px rgba(0,38,197,.12)}
+.pal-current{display:inline-block;width:22px;height:22px;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(0,0,80,.15)}
+.pal-label{letter-spacing:.2px}
+.pal-chev{font-size:9px;color:#94A3B8;transition:transform .15s}
+.pal-pop[data-open="1"] .pal-chev{transform:rotate(180deg);color:#0026C5}
+.pal-panel{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:20;background:#fff;border:1px solid #E5E7EB;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,80,.18);padding:10px 12px;min-width:260px}
+.pal-pop[data-open="1"] .pal-panel{display:block}
+.pal-group + .pal-group{margin-top:8px;padding-top:8px;border-top:1px solid #F1F5F9}
+.pal-gn{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748B;margin-bottom:4px}
+.pal-row{display:flex;flex-wrap:wrap;gap:4px}
+.pal-row .pal-sw{width:22px;height:22px;border-radius:5px;cursor:pointer;border:2px solid transparent;transition:transform .1s}
+.pal-row .pal-sw:hover{transform:scale(1.15)}
+.pal-row .pal-sw.act{border-color:#000;box-shadow:0 0 0 1px #fff,0 0 0 3px #000050}
+
+/* Export-dropdown */
+.tb-menu{position:relative;display:inline-flex}
+.tb-menu-list{display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;color:#000050;border:1px solid #E5E7EB;border-radius:8px;box-shadow:0 12px 30px rgba(0,0,80,.25);min-width:150px;padding:4px;z-index:30}
+.tb-menu.open .tb-menu-list{display:block}
+.tb-menu-item{display:block;width:100%;text-align:left;background:none;border:none;padding:7px 10px;font-size:10px;font-weight:600;color:#000050;cursor:pointer;font-family:inherit;border-radius:5px}
+.tb-menu-item:hover{background:#EEF2FF;color:#0026C5}
+
+/* Print: verberg dropdown en vandaag-lijn niet - print juist kolom */
+@media print{.tb-menu,.g-now-line::before{display:none!important}.g-now-line{background:#DC2626!important}}

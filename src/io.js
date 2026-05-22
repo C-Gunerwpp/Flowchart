@@ -102,7 +102,7 @@
       meta: {
         name,
         modified: now.toISOString(),
-        author: document.getElementById('authIn').value,
+        author: (FS.locks && FS.locks.getUserName && FS.locks.getUserName()) || '',
         client: s.client,
         version: FS.constants.FILE_VERSION,
       },
@@ -189,7 +189,7 @@
         s.campaigns = d.campaigns;
         s.nextId = d.nextId || 100;
         normalize(s.campaigns);
-        if (d.meta && d.meta.author) document.getElementById('authIn').value = d.meta.author;
+        // meta.author wordt nu uit de userPill gelezen (FS.locks.getUserName) — geen apart Bewerker-veld meer.
         document.getElementById('clientIn').value = s.client;
         s.selectedCamp = null;
         s.selectedFlight = null;

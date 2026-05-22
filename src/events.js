@@ -111,9 +111,35 @@
     /* ----- Topbar ----- */
     document.getElementById('btnSave').addEventListener('click', FS.io.saveFile);
     document.getElementById('btnLoad').addEventListener('click', () => fileInput.click());
-    document.getElementById('btnCSV').addEventListener('click', FS.io.exportCSV);
-    document.getElementById('btnXLS').addEventListener('click', FS.io.exportXLS);
-    document.getElementById('btnPDF').addEventListener('click', () => window.print());
+
+    /* ----- Export-dropdown ----- */
+    const exportMenu = document.getElementById('tbExport');
+    const exportBtn = document.getElementById('btnExport');
+    function closeExportMenu() {
+      if (!exportMenu) return;
+      exportMenu.classList.remove('open');
+      if (exportBtn) exportBtn.setAttribute('aria-expanded', 'false');
+    }
+    if (exportBtn && exportMenu) {
+      exportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = exportMenu.classList.toggle('open');
+        exportBtn.setAttribute('aria-expanded', String(isOpen));
+      });
+      exportMenu.querySelectorAll('.tb-menu-item').forEach((item) => {
+        item.addEventListener('click', (e) => {
+          const act = e.currentTarget.dataset.act;
+          closeExportMenu();
+          if (act === 'csv') FS.io.exportCSV();
+          else if (act === 'xls') FS.io.exportXLS();
+          else if (act === 'pdf') window.print();
+        });
+      });
+      document.addEventListener('click', (e) => {
+        if (!exportMenu.contains(e.target)) closeExportMenu();
+      });
+    }
+
     document.getElementById('btnSett').addEventListener('click', FS.modals.openSett);
     document.getElementById('btnUndo').addEventListener('click', () => FS.history && FS.history.undo());
     document.getElementById('btnRedo').addEventListener('click', () => FS.history && FS.history.redo());
@@ -122,6 +148,8 @@
     document.getElementById('btnZoomIn').addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.zoomIn());
     document.getElementById('btnZoomOut').addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.zoomOut());
     document.getElementById('zoomVal').addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.zoomReset());
+    const btnToday = document.getElementById('btnToday');
+    if (btnToday) btnToday.addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.scrollToNow());
     document.getElementById('insClose').addEventListener('click', () => FS.insights && FS.insights.close());
     document.getElementById('insBg').addEventListener('click', function (e) {
       if (e.target === this) FS.insights && FS.insights.close();
@@ -276,6 +304,13 @@
       const tiEl = e.target.closest('.m-item[data-ti]');
       if (tiEl && s.selectedFlight !== null && s.selectedTactic === null) {
         FS.modals.showTacticModal(ci, s.selectedFlight, parseInt(tiEl.dataset.ti, 10));
+        return;
+      }
+
+      const palTrigger = e.target.closest('.pal-trigger');
+      if (palTrigger) {
+        const pop = palTrigger.closest('.pal-pop');
+        if (pop) pop.dataset.open = pop.dataset.open === '1' ? '0' : '1';
         return;
       }
 
@@ -693,6 +728,12 @@
           FS.io.exportCSV();
           return;
         }
+        if (key === 't') {
+          if (isTypingTarget(e.target)) return;
+          e.preventDefault();
+          if (FS.ganttInteract && FS.ganttInteract.scrollToNow) FS.ganttInteract.scrollToNow();
+          return;
+        }
       }
       // ? = shortcut hulp
       if (e.key === '?' && !isTypingTarget(e.target)) {
@@ -751,6 +792,15 @@
 
     if (FS.io.hasLocal()) document.getElementById('wr').classList.add('sh');
     if (FS.ganttInteract) FS.ganttInteract.init();
+
+    // Vandaag-lijn herpositioneren bij venster-resize
+    let nowLineResizeT = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(nowLineResizeT);
+      nowLineResizeT = setTimeout(() => {
+        if (FS.render && FS.render.positionNowLine) FS.render.positionNowLine();
+      }, 80);
+    });
 
     // Gedeelde planning in URL? Direct laden zonder welkomstscherm.
     if (FS.collab && location.hash.startsWith('#s=')) {
@@ -895,6 +945,7 @@
         ['Ctrl+Shift+S', 'Download JSON-bestand'],
         ['Ctrl+N', 'Nieuwe campagne'],
         ['Ctrl+E', 'Export CSV'],
+        ['Ctrl+T', 'Spring naar huidige week'],
         ['Ctrl+Z', 'Ongedaan maken'],
         ['Ctrl+Y of Ctrl+Shift+Z', 'Opnieuw'],
         ['Shift+klik op bar', 'Toevoegen aan selectie'],
