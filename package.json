@@ -1,0 +1,16 @@
+{
+  "name": "flowchart-studio",
+  "version": "13.5.0",
+  "private": false,
+  "description": "Flowchart Studio is a browser-based campaign planning tool for campaigns, flights, and tactics.",
+  "main": "src/events.js",
+  "scripts": {
+    "lint": "eslint . --ext .js,.html",
+    "format": "prettier --write \"**/*.{js,css,html,json,md}\"",
+    "check": "npm run lint"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "prettier": "^3.0.0"
+  }
+}

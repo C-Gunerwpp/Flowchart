@@ -1,0 +1,16 @@
+# Auto-normalize line endings
+* text=auto
+*.html text
+*.css text
+*.js text
+*.json text
+*.md text
+*.yml text
+*.yaml text
+
+# Treat assets as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.svg binary

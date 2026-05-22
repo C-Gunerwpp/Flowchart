@@ -1,108 +1,83 @@
-# Flowchart Studio v13.5
+# Flowchart Studio
 
-Een lokale Git-repository voor `Flowchart_Studio_v13.5.html`, een statische HTML-app voor Flowchart Studio.
+Flowchart Studio is een browsergebaseerde planningstool voor mediastrategieën. De app helpt bij het plannen van campagnes, flights en tactics inclusief budget, kanalen, creatie- en toolingkosten.
 
-## Wat is `Flowchart_Studio_v13.5.html`?
+## Wat is nieuw in deze repository
 
-`Flowchart_Studio_v13.5.html` is een complete, zelfstandige webpagina die je direct in een moderne browser kunt openen. Er is geen installatie of server nodig: de hele app zit in één HTML-bestand met alle code voor de gebruikersinterface, logica en exportfuncties.
+- `index.html` — startpagina, laadt de modules in volgorde.
+- `styles.css` — centraliseert de styling.
+- `src/` — applicatielogica opgesplitst in modules:
+  - `constants.js` — kanalen, metrics, statussen, kleurpalet.
+  - `state.js` — alle muteerbare toestand achter `FS.state`.
+  - `utils.js` — formatters, datum/week-conversie, HTML-escape, debounce.
+  - `calc.js` — pure budget- en fee-berekeningen.
+  - `render.js` — Gantt, summary en legend.
+  - `modals.js` — campagne-, flight-, tactic- en settings-modals.
+  - `io.js` — autosave (debounced), JSON save/load, CSV en XLS export.
+  - `events.js` — event-bindings en bootstrap.
+- `package.json` — projectmetadata en scripts.
+- `.github/workflows/ci.yml` — GitHub Actions voor linting.
+- `LICENSE` — MIT-licentie.
+- `.gitattributes`, `.editorconfig`, `.prettierrc`, `.eslintrc.json` — kwaliteits- en stijlconfiguratie.
 
-De app helpt je om media-campagnes te plannen in drie niveaus:
+> De oude single-file versie staat onder `legacy/Flowchart_Studio_v13.5.html`.
 
-- Campagnes
-- Flights binnen die campagnes
-- Tactics binnen die flights
+## Installatie
 
-Je kunt budgetten, start- en einddata, kanalen en extra kosten invoeren en daarna de planning bekijken in een interactieve tijdlijn.
+1. Open de repository in Visual Studio Code of een andere editor.
+2. Open `index.html` in de browser om de app direct te gebruiken.
+3. Voor ontwikkeling installeer je dependencies met:
 
-## Hoe werkt de app?
+```powershell
+npm install
+```
 
-1. Open `Flowchart_Studio_v13.5.html` in een browser zoals Chrome, Edge of Firefox.
-2. Kies een bestaande campagnebestanden via de knop `JSON laden` of sleep een `.json` bestand op het startscherm.
-3. Je kunt ook een nieuwe planning maken met de knop `Nieuw`.
-4. In het hoofdscherm kun je:
-   - campagnes toevoegen en bewerken
-   - flights toevoegen, wijzigen en verwijderen
-   - tactics verdelen over kanalen met budget en metrics
-   - status en kleuren aanpassen
-5. De app toont een visuele tijdlijn met weken, budgetten en totale overzichten.
+4. Run linting met:
 
-## Wat kun je ermee doen?
+```powershell
+npm run lint
+```
 
-- Campagnes plannen volgens een mediastrategie
-- Budgetten bijhouden per campagne, flight en tactic
-- Creatie- en tooling-kosten toevoegen
-- Handling fee berekenen per kanaal
-- Exporteren naar:
-  - JSON (voor later opnieuw openen)
-  - CSV (gegevenslijst)
-  - XLS (Excel-compatibel formulier)
-  - PDF/print
-- Instellingen aanpassen en automatische opslag in de browser gebruiken
+5. Formatteer bestanden met:
 
-## Snel starten
-
-1. Open `Flowchart_Studio_v13.5.html` in een browser zoals Chrome, Edge of Firefox.
-2. Klik op `Nieuw` om een nieuwe planning te maken.
-3. Voeg een campagne toe en geef deze een naam.
-4. Voeg een flight toe aan de campagne en kies de start- en einddatum.
-5. Voeg eventueel een tactic toe en verdeel het budget over kanalen.
-6. Gebruik `JSON laden` of sleep een eerder opgeslagen `.json` bestand om een bestaande planning terug te lezen.
-7. Sla je werk op met `Opslaan` of exporteer naar `CSV`, `XLS` of `PDF`.
-
-## Belangrijk om te weten
-
-- De app draait volledig in je browser; er is geen installatie of server nodig.
-- Als je gegevens wilt bewaren, sla het bestand op als JSON of exporteer naar XLS/PDF.
-- De browser kan de laatste sessie onthouden, maar dit is niet hetzelfde als een online opslagdienst.
-- Er is geen realtime samenwerking of gebruikersbeheer; dit is een lokale tool voor één gebruiker.
-
-## Over deze repository
-
-Deze repository bevat één hoofdbestand:
-
-- `Flowchart_Studio_v13.5.html` — de volledige Flowchart Studio app in één HTML-bestand.
-
-Daarnaast bevat de repository:
-
-- `.gitignore` — uitsluitingen voor tijdelijke en systeembestanden.
-- `setup_git.ps1` — een PowerShell-script om de repo te initialiseren en de eerste commit te maken.
+```powershell
+npm run format
+```
 
 ## Hoe te gebruiken
 
-1. Open de map `Flowchart_Studio_v13.5_Repo` in Visual Studio Code of een andere editor.
-2. Open `Flowchart_Studio_v13.5.html` in een browser om de app te bekijken.
-3. Bewerk bestanden zoals gewenst in de editor.
+1. Open `index.html` in een moderne browser zoals Chrome, Edge of Firefox.
+2. Begin met `Nieuw` voor een frisse planning of laad een bestaande `.json` file.
+3. Voeg campagnes, flights en tactics toe.
+4. Pas kanalen, budgetten en metrics aan in de modalinterfaces.
+5. Exporteer naar JSON, CSV, XLS of print direct naar PDF.
 
-## Git-installatie en setup
+## Branch en workflow
 
-Als Git nog niet is geïnstalleerd, installeer het dan eerst. Op Windows kun je bijvoorbeeld `winget install --id Git.Git -e --silent` gebruiken.
+- Deze wijzigingen zijn aangebracht op branch `Verbeterd`.
+- Het nieuwe project bevat een professionele structuur voor verdere ontwikkeling.
 
-Als de repository nog niet is geïnitialiseerd, voer dan het volgende uit in PowerShell:
+## Projectstructuur
 
-```powershell
-Set-Location 'C:\Users\Can.Guner\Flowchart_Studio_v13.5_Repo'
-.\setup_git.ps1
-```
+- `index.html` — startbestand, laadt de modules.
+- `styles.css` — app-styling.
+- `src/` — modulair opgebouwde applicatielogica (zie hierboven).
+- `package.json` — npm scripts en dev dependencies.
+- `.github/workflows/ci.yml` — CI voor linting en formatter checks.
+- `.gitignore` — ignore-regels voor editor-, OS- en node-bestanden.
+- `LICENSE` — MIT-licentie.
+- `legacy/Flowchart_Studio_v13.5.html` — legacy single-file app.
 
-## Pushen naar GitHub
+## Verbeteringen
 
-Nadat je een repository op GitHub hebt aangemaakt, voeg je de remote toe en push je naar `main`:
+1. Gestructureerde codebase: HTML/CSS/JS gescheiden + JS gesplitst in modules per verantwoordelijkheid.
+2. XSS-veilige rendering: alle gebruikersinvoer wordt geëscaped voordat het in `innerHTML` belandt.
+3. Debounced autosave (250 ms) — geen IO-druk meer bij snel typen van metrics of notities.
+4. Slimme modal-updates: tekstvelden updaten state + Gantt zonder de modal te herrenderen, dus cursorpositie blijft staan tijdens typen.
+5. Leesbare codebase: `const`/`let`, sprekende namen (`campaigns`, `flightBudget`, `formatCurrency`) en JSDoc waar nuttig.
+6. Professionele repository-inrichting met linting, formatting en CI.
+7. Gebruiksvriendelijke export- en importsupport.
 
-```powershell
-git remote add origin https://github.com/C-Gunerwpp/Flowchart.git
-git branch -M main
-git push -u origin main
-```
+## Licentie
 
-## Repository-inhoud
-
-- `Flowchart_Studio_v13.5.html` — HTML-applicatie
-- `.gitignore` — standaardignore-regels voor deze repo
-- `README.md` — dit bestand
-- `setup_git.ps1` — setup-script voor Git-init en commit
-
-## Opmerkingen
-
-- Dit project is een statische HTML-pagina; er is geen extra backend nodig.
-- Voor een geoptimaliseerde workflow kun je de HTML openen in een moderne browser zoals Chrome, Edge of Firefox.
-- Als je wijzigingen reponeert, gebruik dan een duidelijke commitboodschap zoals `Update Flowchart Studio HTML`.
+Deze repository gebruikt de MIT-licentie. Zie `LICENSE` voor details.
