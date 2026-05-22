@@ -94,7 +94,8 @@
 
   function saveFile() {
     const s = FS.state;
-    s.client = document.getElementById('clientIn').value;
+    const ci = document.getElementById('clientIn');
+    if (ci) s.client = ci.value;
     const now = new Date();
     const ds = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const name = `${makeFilenamePrefix()}flowchart-${ds}`;
@@ -189,8 +190,8 @@
         s.campaigns = d.campaigns;
         s.nextId = d.nextId || 100;
         normalize(s.campaigns);
-        // meta.author wordt nu uit de userPill gelezen (FS.locks.getUserName) — geen apart Bewerker-veld meer.
-        document.getElementById('clientIn').value = s.client;
+        const ciEl = document.getElementById('clientIn');
+        if (ciEl) ciEl.value = s.client;
         s.selectedCamp = null;
         s.selectedFlight = null;
         s.selectedTactic = null;
@@ -222,7 +223,8 @@
 
   function exportCSV() {
     const s = FS.state;
-    s.client = document.getElementById('clientIn').value;
+    const ci = document.getElementById('clientIn');
+    if (ci) s.client = ci.value;
     const csvSafe = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
     const rows = [['Klant', 'Campagne', 'Flight', 'Status', 'Budget', 'Creatie', 'Tooling',
       'Tactic', 'Tac.Budget', 'Start', 'Eind', 'Kanalen']];
@@ -254,7 +256,8 @@
 
   function exportXLS() {
     const s = FS.state;
-    s.client = document.getElementById('clientIn').value;
+    const ci = document.getElementById('clientIn');
+    if (ci) s.client = ci.value;
     const channels = FS.constants.CHANNELS;
     let h = `<html><head><meta charset="UTF-8"><style>td,th{border:1px solid #999;padding:4px 6px;font-family:Calibri;font-size:10pt}th{background:#000050;color:#fff;font-weight:bold}.tot{background:#E0E7FF;font-weight:bold}.hdr{font-size:14pt;font-weight:bold;padding:8px}</style></head><body>`;
     if (s.client) h += `<div class="hdr">${esc(s.client)} — Flowchart ${esc(s.year)}</div>`;

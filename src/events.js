@@ -18,8 +18,10 @@
   function showApp() {
     document.getElementById('W').classList.add('h');
     document.getElementById('A').classList.add('on');
-    document.getElementById('yearIn').value = FS.state.year;
-    document.getElementById('clientIn').value = FS.state.client;
+    const yr = document.getElementById('yearIn');
+    if (yr) yr.value = FS.state.year;
+    const ci = document.getElementById('clientIn');
+    if (ci) ci.value = FS.state.client;
     FS.render.render();
     if (FS.history) FS.history.updateButtons();
     if (FS.ganttInteract) FS.ganttInteract.applyZoom();
