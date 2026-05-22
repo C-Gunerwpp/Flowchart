@@ -20,21 +20,26 @@
     </div>
     <div class="tb-right">
       <input class="tb-in tb-yr" id="yearIn" type="number" value="2026" min="2020" max="2035" title="Jaar">
-      <input class="tb-in" id="authIn" type="text" placeholder="Bewerker" style="width:80px">
       <span class="active-file-pill" id="activeFilePill" style="display:none" title="Actief bestand"></span>
-      <button class="user-pill" id="userPill" title="Klik om je naam te wijzigen">✏️ Naam instellen</button>
+      <button class="user-pill" id="userPill" title="Klik om je naam in te stellen of te wijzigen — deze naam wordt vastgelegd in elk plan dat je opslaat">✏️ Naam instellen</button>
       <button class="tb-btn" id="btnUndo" title="Ongedaan maken (Ctrl+Z)" disabled>&#8630;</button>
       <button class="tb-btn" id="btnRedo" title="Opnieuw (Ctrl+Y)" disabled>&#8631;</button>
       <button class="tb-btn" id="btnZoomOut" title="Zoom uit">&#128269;&#8722;</button>
-      <span class="tb-zv" id="zoomVal" title="Zoom">100%</span>
+      <span class="tb-zv" id="zoomVal" title="Zoom (klik om te resetten)">100%</span>
       <button class="tb-btn" id="btnZoomIn" title="Zoom in">&#128269;&#43;</button>
+      <button class="tb-btn" id="btnToday" title="Spring naar de huidige week">&#128197; Vandaag</button>
       <button class="tb-btn ins" id="btnIns" title="Inzichten">&#128202; Inzichten</button>
       <button class="tb-btn ins" id="btnCollab" title="Versies, templates & delen">&#128451; Versies</button>
       <button class="tb-btn save" id="btnSave">&#128190; Opslaan</button>
       <button class="tb-btn load" id="btnLoad">&#128194; Laden</button>
-      <button class="tb-btn" id="btnCSV">CSV</button>
-      <button class="tb-btn" id="btnXLS">XLS</button>
-      <button class="tb-btn" id="btnPDF">PDF</button>
+      <div class="tb-menu" id="tbExport">
+        <button class="tb-btn" id="btnExport" title="Exporteer naar CSV, XLS of PDF" aria-haspopup="true" aria-expanded="false">&#11015;&#65039; Export &#9662;</button>
+        <div class="tb-menu-list" role="menu">
+          <button class="tb-menu-item" data-act="csv" role="menuitem">CSV bestand</button>
+          <button class="tb-menu-item" data-act="xls" role="menuitem">XLS bestand</button>
+          <button class="tb-menu-item" data-act="pdf" role="menuitem">PDF (print)</button>
+        </div>
+      </div>
       <button class="tb-btn" id="btnSett">&#9881;&#65039;</button>
       <span class="tb-status" id="autoSaveStatus">&#8211;</span>
     </div>

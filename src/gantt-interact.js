@@ -302,13 +302,38 @@
     const g = document.getElementById('gantt');
     if (!g) return;
     g.style.minWidth = Math.round(BASE_WIDTH * zoom) + 'px';
+    g.style.setProperty('--gz', zoom);
     const ind = document.getElementById('zoomVal');
     if (ind) ind.textContent = Math.round(zoom * 100) + '%';
+    if (FS.render && FS.render.positionNowLine) {
+      requestAnimationFrame(FS.render.positionNowLine);
+    }
   }
 
   function zoomIn() { zoom = Math.min(ZOOM_MAX, Math.round((zoom + ZOOM_STEP) * 100) / 100); applyZoom(); }
   function zoomOut() { zoom = Math.max(ZOOM_MIN, Math.round((zoom - ZOOM_STEP) * 100) / 100); applyZoom(); }
   function zoomReset() { zoom = 1; applyZoom(); }
 
-  FS.ganttInteract = { init, applyZoom, zoomIn, zoomOut, zoomReset };
+  /** Scroll de gantt horizontaal zodat de huidige week in beeld is. */
+  function scrollToNow() {
+    const wrap = document.getElementById('ganttWrap');
+    const gantt = document.getElementById('gantt');
+    if (!wrap || !gantt) return;
+    const nw = FS.utils.getCurrentWeek && FS.utils.getCurrentWeek();
+    if (!nw) {
+      if (FS.toast) FS.toast.show('Vandaag valt buiten het actieve jaar', 'info');
+      return;
+    }
+    const weeksEl = gantt.querySelector('.g-head-w .gh-weeks');
+    if (!weeksEl) return;
+    const weeksRect = weeksEl.getBoundingClientRect();
+    const ganttRect = gantt.getBoundingClientRect();
+    const offsetLeft = weeksRect.left - ganttRect.left;
+    const colWidth = weeksRect.width / 52;
+    const nwLeft = offsetLeft + (nw - 0.5) * colWidth;
+    const target = Math.max(0, nwLeft - wrap.clientWidth / 2);
+    wrap.scrollTo({ left: target, behavior: 'smooth' });
+  }
+
+  FS.ganttInteract = { init, applyZoom, zoomIn, zoomOut, zoomReset, scrollToNow };
 })(window.FS = window.FS || {});

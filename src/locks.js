@@ -30,7 +30,7 @@
     if (existing) existing.remove();
     const wrap = document.createElement('div');
     wrap.id = 'userAskBg';
-    wrap.className = 'modal-bg on';
+    wrap.className = 'modal-bg open';
     wrap.style.zIndex = '110';
     wrap.innerHTML = '<div class="cfm-box" style="max-width:440px">'
       + '<div class="cfm-icon">\ud83d\udc4b</div>'

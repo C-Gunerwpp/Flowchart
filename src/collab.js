@@ -248,7 +248,7 @@
     if (existing) existing.remove();
     const wrap = document.createElement('div');
     wrap.id = 'cmpBg';
-    wrap.className = 'modal-bg on';
+    wrap.className = 'modal-bg open';
     wrap.style.zIndex = '92';
     let html = '<div class="ins-modal" style="max-width:820px"><div class="ins-head"><h2>\ud83d\udd00 Vergelijking</h2><button class="mbtn" id="cmpClose">Sluit</button></div><div class="cmp-list">';
     if (lines.length === 1) {
@@ -272,7 +272,7 @@
     closeCollab();
     const wrap = document.createElement('div');
     wrap.id = 'collabBg';
-    wrap.className = 'modal-bg on';
+    wrap.className = 'modal-bg open';
     wrap.style.zIndex = '88';
     document.body.appendChild(wrap);
     wrap.addEventListener('click', (e) => {
