@@ -10,7 +10,8 @@
 <body>
 <div class="ttip" id="ttip" role="tooltip" aria-hidden="true"></div>
 <input type="file" id="FI" accept=".json" style="display:none" aria-hidden="true">
-<div id="W"><span style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:6px 16px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:24px;display:inline-block">WPP MEDIA</span><h1 class="wtt">Flowchart Studio</h1><p class="wt2">Campagne &#8594; Flight &#8594; Tactic</p><div class="wa"><button class="wbtn wbl" id="wl">&#128194; JSON laden</button><button class="wbtn wbn" id="wn">&#10024; Nieuw</button></div><div class="wdr" id="wd"><div style="font-size:36px;margin-bottom:6px">&#128196;</div><p style="font-size:11px;color:rgba(255,255,255,.5)">Of <b style="color:rgba(255,255,255,.8)">sleep een .json</b> hierheen</p></div><button class="wre" id="wr">&#128260; Vorige sessie</button></div>
+<div id="W"><span style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:6px 16px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:24px;display:inline-block">WPP MEDIA</span><h1 class="wtt">Flowchart Studio</h1><p class="wt2">Campagne &#8594; Flight &#8594; Tactic</p><div class="wa"><button class="wbtn wbl" id="wl">&#128194; JSON laden</button><button class="wbtn wbn" id="wn">&#10024; Nieuw</button></div><div class="wdr" id="wd"><div style="font-size:36px;margin-bottom:6px">&#128196;</div><p style="font-size:11px;color:rgba(255,255,255,.5)">Of <b style="color:rgba(255,255,255,.8)">sleep een .json</b> hierheen</p></div><button class="wre" id="wr">&#128260; Vorige sessie</button><div id="recentList" class="recent-list" style="display:none"></div></div>
+<div class="drop-overlay" id="dropOverlay"><div class="drop-overlay-inner">📂 Laat los om dit plan te openen</div></div>
 <div id="A">
   <div class="topbar">
     <div class="tb-left">
@@ -20,6 +21,15 @@
     <div class="tb-right">
       <input class="tb-in tb-yr" id="yearIn" type="number" value="2026" min="2020" max="2035" title="Jaar">
       <input class="tb-in" id="authIn" type="text" placeholder="Bewerker" style="width:80px">
+      <span class="active-file-pill" id="activeFilePill" style="display:none" title="Actief bestand"></span>
+      <button class="user-pill" id="userPill" title="Klik om je naam te wijzigen">✏️ Naam instellen</button>
+      <button class="tb-btn" id="btnUndo" title="Ongedaan maken (Ctrl+Z)" disabled>&#8630;</button>
+      <button class="tb-btn" id="btnRedo" title="Opnieuw (Ctrl+Y)" disabled>&#8631;</button>
+      <button class="tb-btn" id="btnZoomOut" title="Zoom uit">&#128269;&#8722;</button>
+      <span class="tb-zv" id="zoomVal" title="Zoom">100%</span>
+      <button class="tb-btn" id="btnZoomIn" title="Zoom in">&#128269;&#43;</button>
+      <button class="tb-btn ins" id="btnIns" title="Inzichten">&#128202; Inzichten</button>
+      <button class="tb-btn ins" id="btnCollab" title="Versies, templates & delen">&#128451; Versies</button>
       <button class="tb-btn save" id="btnSave">&#128190; Opslaan</button>
       <button class="tb-btn load" id="btnLoad">&#128194; Laden</button>
       <button class="tb-btn" id="btnCSV">CSV</button>
@@ -36,6 +46,21 @@
 <div class="modal-bg" id="modalBg"><div class="modal" id="modal"><div class="modal-head"><div class="modal-nav" id="modalNav"></div><button class="modal-close" id="modalClose">&#10005;</button></div><div class="modal-body" id="modalBody"></div></div></div>
 <div class="modal-bg" id="settBg"><div class="modal wide"><div class="modal-head"><div class="modal-nav"><strong>&#9881;&#65039; Settings</strong></div><button class="modal-close" id="settClose">&#10005;</button></div><div class="modal-body" id="settBody"></div></div></div>
 <div class="modal-bg" id="cfmBg"><div class="cfm-box"><div class="cfm-icon" id="cfmIcon"></div><div class="cfm-msg" id="cfmMsg"></div><div class="cfm-btns"><button class="mbtn" id="cfmNo">Annuleer</button><button class="mbtn pri" id="cfmYes">Akkoord</button></div></div></div>
-<script src="app.js" defer></script>
+<div class="modal-bg" id="insBg"><div class="modal ins-modal"><div class="modal-head"><div class="modal-nav"><strong>&#128202; Inzichten &amp; rapportage</strong></div><button class="modal-close" id="insClose">&#10005;</button></div><div class="modal-body" id="insBody"></div></div></div>
+<div class="toast-wrap" id="toastWrap"></div>
+<script src="src/constants.js" defer></script>
+<script src="src/state.js" defer></script>
+<script src="src/utils.js" defer></script>
+<script src="src/toast.js" defer></script>
+<script src="src/calc.js" defer></script>
+<script src="src/render.js" defer></script>
+<script src="src/modals.js" defer></script>
+<script src="src/insights.js" defer></script>
+<script src="src/history.js" defer></script>
+<script src="src/gantt-interact.js" defer></script>
+<script src="src/collab.js" defer></script>
+<script src="src/locks.js" defer></script>
+<script src="src/io.js" defer></script>
+<script src="src/events.js" defer></script>
 </body>
 </html>

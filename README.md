@@ -4,15 +4,23 @@ Flowchart Studio is een browsergebaseerde planningstool voor mediastrategieën. 
 
 ## Wat is nieuw in deze repository
 
-- `index.html` — huidige startpagina met gescheiden HTML-structuur.
+- `index.html` — startpagina, laadt de modules in volgorde.
 - `styles.css` — centraliseert de styling.
-- `app.js` — de applicatielogica in een eigen JavaScript-bestand.
+- `src/` — applicatielogica opgesplitst in modules:
+  - `constants.js` — kanalen, metrics, statussen, kleurpalet.
+  - `state.js` — alle muteerbare toestand achter `FS.state`.
+  - `utils.js` — formatters, datum/week-conversie, HTML-escape, debounce.
+  - `calc.js` — pure budget- en fee-berekeningen.
+  - `render.js` — Gantt, summary en legend.
+  - `modals.js` — campagne-, flight-, tactic- en settings-modals.
+  - `io.js` — autosave (debounced), JSON save/load, CSV en XLS export.
+  - `events.js` — event-bindings en bootstrap.
 - `package.json` — projectmetadata en scripts.
 - `.github/workflows/ci.yml` — GitHub Actions voor linting.
 - `LICENSE` — MIT-licentie.
 - `.gitattributes`, `.editorconfig`, `.prettierrc`, `.eslintrc.json` — kwaliteits- en stijlconfiguratie.
 
-> De oude `Flowchart_Studio_v13.5.html` blijft als legacy-versie aanwezig.
+> De oude single-file versie staat onder `legacy/Flowchart_Studio_v13.5.html`.
 
 ## Installatie
 
@@ -51,22 +59,24 @@ npm run format
 
 ## Projectstructuur
 
-- `index.html` — startbestand met gescheiden layout.
+- `index.html` — startbestand, laadt de modules.
 - `styles.css` — app-styling.
-- `app.js` — applicatielogica.
+- `src/` — modulair opgebouwde applicatielogica (zie hierboven).
 - `package.json` — npm scripts en dev dependencies.
 - `.github/workflows/ci.yml` — CI voor linting en formatter checks.
 - `.gitignore` — ignore-regels voor editor-, OS- en node-bestanden.
 - `LICENSE` — MIT-licentie.
-- `Flowchart_Studio_v13.5.html` — legacy single-file app.
+- `legacy/Flowchart_Studio_v13.5.html` — legacy single-file app.
 
 ## Verbeteringen
 
-1. Gestructureerde codebase met losse HTML-, CSS- en JS-bestanden.
-2. Professionele repository-inrichting met linting, formatting en CI.
-3. Beter documentatie en projectmetadata.
-4. Gebruiksvriendelijke export- en importsupport.
-5. Basis voor responsive weergave en verbeterde onderhoudbaarheid.
+1. Gestructureerde codebase: HTML/CSS/JS gescheiden + JS gesplitst in modules per verantwoordelijkheid.
+2. XSS-veilige rendering: alle gebruikersinvoer wordt geëscaped voordat het in `innerHTML` belandt.
+3. Debounced autosave (250 ms) — geen IO-druk meer bij snel typen van metrics of notities.
+4. Slimme modal-updates: tekstvelden updaten state + Gantt zonder de modal te herrenderen, dus cursorpositie blijft staan tijdens typen.
+5. Leesbare codebase: `const`/`let`, sprekende namen (`campaigns`, `flightBudget`, `formatCurrency`) en JSDoc waar nuttig.
+6. Professionele repository-inrichting met linting, formatting en CI.
+7. Gebruiksvriendelijke export- en importsupport.
 
 ## Licentie
 

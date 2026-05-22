@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Flowchart Studio — calc tests</title>
+<style>
+  body{font-family:'Segoe UI',sans-serif;background:#0C1726;color:#E5E7EB;padding:24px;margin:0}
+  h1{font-size:16px;color:#fff;margin:0 0 12px}
+  .sum{padding:10px 14px;border-radius:8px;font-size:13px;font-weight:700;margin-bottom:16px}
+  .sum.ok{background:#065F46;color:#D1FAE5}
+  .sum.fail{background:#7F1D1D;color:#FEE2E2}
+  .case{padding:10px 14px;border-radius:6px;margin-bottom:6px;font-size:12px;font-family:'Consolas',monospace}
+  .case.ok{background:#1F2937;color:#86EFAC}
+  .case.fail{background:#3F1D1D;color:#FCA5A5}
+  .case .det{display:block;font-size:11px;color:#94A3B8;margin-top:4px}
+  .head{font-weight:700;color:#93C5FD;margin:14px 0 4px}
+</style>
+</head>
+<body>
+<h1>🧪 calc.js tests</h1>
+<div id="sum" class="sum">Tests laden…</div>
+<div id="out"></div>
+
+<script src="../src/constants.js"></script>
+<script src="../src/state.js"></script>
+<script src="../src/utils.js"></script>
+<script src="../src/calc.js"></script>
+<script>
+(function () {
+  const results = [];
+  let pass = 0, fail = 0;
+  const out = document.getElementById('out');
+  let currentGroup = '';
+
+  function group(name) {
+    currentGroup = name;
+    const h = document.createElement('div');
+    h.className = 'head';
+    h.textContent = '▸ ' + name;
+    out.appendChild(h);
+  }
+
+  function test(name, fn) {
+    let err = null;
+    try { fn(); } catch (e) { err = e; }
+    const div = document.createElement('div');
+    div.className = 'case ' + (err ? 'fail' : 'ok');
+    div.textContent = (err ? '✗ ' : '✓ ') + name;
+    if (err) {
+      const det = document.createElement('span');
+      det.className = 'det';
+      det.textContent = (err.message || err) + (err.expected !== undefined
+        ? `\n  verwacht: ${JSON.stringify(err.expected)}\n  gekregen: ${JSON.stringify(err.actual)}` : '');
+      div.appendChild(det);
+      fail++;
+    } else {
+      pass++;
+    }
+    out.appendChild(div);
+  }
+
+  function eq(actual, expected, msg) {
+    if (actual !== expected) {
+      const e = new Error(msg || 'eq mismatch');
+      e.expected = expected; e.actual = actual;
+      throw e;
+    }
+  }
+
+  function close(actual, expected, eps, msg) {
+    if (Math.abs(actual - expected) > (eps || 0.001)) {
+      const e = new Error(msg || 'close mismatch');
+      e.expected = expected; e.actual = actual;
+      throw e;
+    }
+  }
+
+  // Helper: zet een test-state op
+  function setup(campaigns, fees) {
+    FS.state.campaigns = campaigns || [];
+    FS.state.fees = fees || {};
+    FS.state.jaarTotal = 1000000;
+    FS.state.budgetJournal = { base: 1000000, mods: [] };
+    FS.state.creatieJournal = { mods: [] };
+    FS.state.toolingJournal = { mods: [] };
+  }
+
+  /* ============ flightBudget ============ */
+  group('flightBudget');
+  test('lege flight = 0', () => {
+    eq(FS.calc.flightBudget({ tac: [] }), 0);
+  });
+  test('sommeert tactic-budgets', () => {
+    eq(FS.calc.flightBudget({ tac: [{ b: 1000 }, { b: 2500 }] }), 3500);
+  });
+  test('negeert ontbrekende budgets', () => {
+    eq(FS.calc.flightBudget({ tac: [{ b: 500 }, {}, { b: 200 }] }), 700);
+  });
+
+  /* ============ campaignTotal ============ */
+  group('campaignTotal');
+  test('losse campagne sommeert flights', () => {
+    const c = { budget: 0, segs: [{ tac: [{ b: 1000 }] }, { tac: [{ b: 2000 }] }] };
+    eq(FS.calc.campaignTotal(c), 3000);
+  });
+  test('vast campagne-budget overrult flight-som', () => {
+    const c = { budget: 10000, segs: [{ tac: [{ b: 1000 }] }] };
+    eq(FS.calc.campaignTotal(c), 10000);
+  });
+
+  /* ============ grandTotal ============ */
+  group('grandTotal');
+  test('lege state = 0', () => {
+    setup([]);
+    eq(FS.calc.grandTotal(), 0);
+  });
+  test('telt alle campagnes', () => {
+    setup([
+      { budget: 0, segs: [{ tac: [{ b: 1000 }] }] },
+      { budget: 5000, segs: [{ tac: [{ b: 100 }] }] },
+    ]);
+    eq(FS.calc.grandTotal(), 6000);
+  });
+
+  /* ============ channelFee ============ */
+  group('channelFee');
+  test('zonder fee = 0', () => {
+    setup([], {});
+    eq(FS.calc.channelFee('FB', 1000), 0);
+  });
+  test('berekent fee = amount * rate/(1+rate)', () => {
+    setup([], { FB: 0.1 });
+    close(FS.calc.channelFee('FB', 1100), 100, 0.5);
+  });
+
+  /* ============ totalFee ============ */
+  group('totalFee');
+  test('zonder kanalen of fees = 0', () => {
+    setup([{ budget: 0, segs: [{ tac: [{ b: 1000 }] }] }], {});
+    eq(FS.calc.totalFee(), 0);
+  });
+  test('berekent fee per kanaal', () => {
+    setup([{ budget: 0, segs: [{ tac: [{ b: 1100, ch: { FB: 1100 } }] }] }], { FB: 0.1 });
+    close(FS.calc.totalFee(), 100, 0.5);
+  });
+
+  /* ============ budgetJaar ============ */
+  group('budgetJaar / calcJaar');
+  test('basis + mods', () => {
+    setup([]);
+    FS.state.budgetJournal = { base: 100000, mods: [{ a: 5000 }, { a: -2000 }] };
+    FS.calc.calcJaar();
+    eq(FS.state.jaarTotal, 103000);
+  });
+
+  /* ============ Klaar ============ */
+  const sum = document.getElementById('sum');
+  if (fail === 0) {
+    sum.textContent = `✓ ${pass} tests geslaagd`;
+    sum.className = 'sum ok';
+  } else {
+    sum.textContent = `✗ ${fail} mislukt · ${pass} geslaagd`;
+    sum.className = 'sum fail';
+  }
+})();
+</script>
+</body>
+</html>
