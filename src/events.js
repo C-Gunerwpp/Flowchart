@@ -266,15 +266,26 @@
       }
     });
 
-    /* ----- Modal close + back ----- */
+    /* ----- Modal close + back -----
+     * Sluit alleen als zowel mousedown als click op de backdrop zelf
+     * plaatsvonden. Zo wordt de modal niet weggeklikt wanneer de gebruiker
+     * tekst selecteert in een veld en de muis buiten de modal loslaat. */
+    function bindBackdropClose(bgId, closeFn) {
+      const bg = document.getElementById(bgId);
+      let downOnBg = false;
+      bg.addEventListener('mousedown', function (e) {
+        downOnBg = (e.target === bg);
+      });
+      bg.addEventListener('click', function (e) {
+        if (e.target === bg && downOnBg) closeFn();
+        downOnBg = false;
+      });
+    }
+
     document.getElementById('modalClose').addEventListener('click', FS.modals.closeModal);
-    document.getElementById('modalBg').addEventListener('click', function (e) {
-      if (e.target === this) FS.modals.closeModal();
-    });
+    bindBackdropClose('modalBg', FS.modals.closeModal);
     document.getElementById('settClose').addEventListener('click', FS.modals.closeSett);
-    document.getElementById('settBg').addEventListener('click', function (e) {
-      if (e.target === this) FS.modals.closeSett();
-    });
+    bindBackdropClose('settBg', FS.modals.closeSett);
     document.getElementById('modalNav').addEventListener('click', (e) => {
       if (!e.target.closest('.mnav-back')) return;
       const ci = findCampaignIndex(FS.state.selectedCamp);
