@@ -149,7 +149,6 @@
       + `<button class="mbtn" id="mCup">▲</button>`
       + `<button class="mbtn" id="mCdn">▼</button>`
       + `<button class="mbtn grn" id="mCdup">📋 Dupliceer</button>`
-      + `<button class="mbtn" id="mCtpl" title="Opslaan als template">📄 Template</button>`
       + `<button class="mbtn del" id="mCdel">🗑 Verwijder</button></div></div>`;
     h += `<div class="m-section"><h4>✈️ Flights</h4><button class="mbtn pri" id="mFadd">+ Flight</button></div>`;
 

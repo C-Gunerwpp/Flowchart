@@ -394,10 +394,6 @@
         FS.modals.closeModal();
         return;
       }
-      if (id === 'mCtpl') {
-        if (FS.collab) FS.collab.saveAsTemplate(ci);
-        return;
-      }
       if (id === 'mCup') {
         if (ci > 0 && s.campaigns[ci].sec === s.campaigns[ci - 1].sec) {
           [s.campaigns[ci - 1], s.campaigns[ci]] = [s.campaigns[ci], s.campaigns[ci - 1]];
@@ -804,13 +800,6 @@
       }, 80);
     });
 
-    // Gedeelde planning in URL? Direct laden zonder welkomstscherm.
-    if (FS.collab && location.hash.startsWith('#s=')) {
-      if (FS.collab.loadFromHash()) {
-        if (FS.history) FS.history.reset();
-        showApp();
-      }
-    }
   }
 
   /** Pas alleen de nav-tekst aan zonder rest van de modal te raken. */
