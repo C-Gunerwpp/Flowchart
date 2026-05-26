@@ -61,7 +61,7 @@
     get PALETTE() { return this.PALETTE_GROUPS.flatMap((g) => g.colors); },
 
     DEFAULT_YEAR: 2026,
-    DEFAULT_BASE_BUDGET: 1700000,
+    DEFAULT_BASE_BUDGET: 0,
     NOW_WEEK_INDICATOR: 15,
     STORAGE_KEY: 'fs13',
     FILE_VERSION: 7,
