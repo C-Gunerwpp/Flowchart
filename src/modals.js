@@ -54,21 +54,26 @@
   function checkCampBudget(ci, afterFn) {
     const c = FS.state.campaigns[ci];
     if (!c || c.budget <= 0) { if (afterFn) afterFn(); return; }
+    // Geen flights? Dan is er niets te synchroniseren — budget mag vrij ingevuld worden.
+    if (!c.segs || !c.segs.length) { if (afterFn) afterFn(); return; }
     const flTotal = FS.calc.campaignFlightSum(c);
+    // Flights bestaan maar staan allemaal op €0 — geen popup, geen aanpassing.
+    if (flTotal <= 0) { if (afterFn) afterFn(); return; }
     const diff = c.budget - flTotal;
     if (flTotal > c.budget) {
       showConfirm(
-        `Flight totaal wordt <strong>${esc(fC(flTotal))}</strong>.<br>`
-        + `Dit overschrijdt het campagne budget van ${esc(fC(c.budget))}.<br><br>`
-        + `Campagne budget ophogen naar <strong>${esc(fC(flTotal))}</strong>?`,
+        `De flights samen kosten <strong>${esc(fC(flTotal))}</strong>, `
+        + `maar het campagne budget staat op <strong>${esc(fC(c.budget))}</strong>.<br><br>`
+        + `Wil je het campagne budget ophogen naar <strong>${esc(fC(flTotal))}</strong> om te matchen?`,
         (ok) => { if (ok) c.budget = flTotal; if (afterFn) afterFn(); },
         '📈',
       );
     } else if (flTotal < c.budget && diff >= 1) {
       showConfirm(
-        `Flight totaal is <strong>${esc(fC(flTotal))}</strong>.<br>`
-        + `Campagne budget is ${esc(fC(c.budget))} (${esc(fC(diff))} over).<br><br>`
-        + `Campagne budget verlagen naar <strong>${esc(fC(flTotal))}</strong>?`,
+        `De flights samen kosten <strong>${esc(fC(flTotal))}</strong>, `
+        + `dat is <strong>${esc(fC(diff))}</strong> minder dan het campagne budget van ${esc(fC(c.budget))}.<br><br>`
+        + `Wil je het campagne budget verlagen naar <strong>${esc(fC(flTotal))}</strong>?<br>`
+        + `<span style="font-size:11px;color:#6B7280">Annuleer = budget blijft op ${esc(fC(c.budget))}.</span>`,
         (ok) => { if (ok) c.budget = flTotal; if (afterFn) afterFn(); },
         '📉',
       );
