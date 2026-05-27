@@ -180,6 +180,23 @@
 
     gantt.addEventListener('click', (e) => {
       const t = e.target;
+      const addFlt = t.closest('.g-addf');
+      if (addFlt) {
+        e.stopPropagation();
+        const ci = parseInt(addFlt.dataset.ci, 10);
+        const idx = findCampaignIndex(ci);
+        if (idx >= 0) {
+          const camp = FS.state.campaigns[idx];
+          if (camp.locked) return;
+          FS.state.expanded[ci] = true;
+          camp.segs.push({
+            n: '', sd: FS.utils.today(), ed: FS.utils.today(),
+            b: 0, cb: 0, tc: 0, col: '', st: 'concept', nt: '', tac: [],
+          });
+          FS.modals.showFlightModal(idx, camp.segs.length - 1);
+        }
+        return;
+      }
       const toggle = t.closest('.g-toggle');
       if (toggle) {
         const ci = toggle.dataset.ci;

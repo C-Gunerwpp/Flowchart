@@ -11,13 +11,23 @@
   const MONTH_LABELS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 
   /** Eén bar in het Gantt-grid. */
-  function barHTML(startWeek, endWeek, color, textColor, name, budget, status, dataAttrs) {
+  function barHTML(startWeek, endWeek, color, textColor, name, budget, status, dataAttrs, flags) {
+    const f = flags || {};
+    let col = color;
+    let tc = textColor;
+    let extraCls = '';
+    if (f.actualized) {
+      col = '#94A3B8';
+      tc = '#FFFFFF';
+      extraCls = ' g-bar-actual';
+    }
     const stc = statusColor(status);
     return (
-      `<div class="g-bar" style="grid-column:${startWeek}/${endWeek + 1};background:${a(color)};color:${a(textColor)}"${dataAttrs}>`
+      `<div class="g-bar${extraCls}" style="grid-column:${startWeek}/${endWeek + 1};background:${a(col)};color:${a(tc)}"${dataAttrs}>`
       + (name ? `<span class="bn">${esc(name)}</span>` : '')
       + (budget ? `<span class="bb">${esc(fK(budget))}</span>` : '')
       + (stc ? `<div class="g-st" style="background:${a(stc)}"></div>` : '')
+      + (f.needAct ? `<span class="g-bar-warn" title="Wacht op actualisatie">!</span>` : '')
       + '</div>'
     );
   }
@@ -68,20 +78,21 @@
         const b = FS.calc.flightBudget(f);
         const span = ew - sw + 1;
         bars += barHTML(sw, ew, col, tc, span >= 4 ? f.n : '', b, f.st || 'concept',
-          ` data-ci="${a(camp.id)}" data-fi="${fi}"`);
+          ` data-ci="${a(camp.id)}" data-fi="${fi}"`,
+          { actualized: !!f.actualized, needAct: FS.calc.flightNeedsActuals(f) });
       });
     }
     const selected = camp.id === FS.state.selectedCamp;
-    const needAct = (camp.segs || []).some((f) => FS.calc.flightNeedsActuals(f));
     const lockIc = camp.locked ? `<span style="margin-left:4px;font-size:10px" title="Vergrendeld">🔒</span>` : '';
-    const warnIc = needAct ? `<span class="g-need-act" title="Wacht op actualisatie">!</span>` : '';
     return `<div class="g-row g-camp${isExp ? ' g-exp' : ''}${selected ? ' g-sel' : ''}" data-ci="${a(camp.id)}">`
       + `<div class="g-label">`
       + `<span class="g-toggle" data-ci="${a(camp.id)}">${isExp ? '▼' : '▶'}</span>`
       + `<span class="g-dot" style="background:${a(camp.col)}"></span>`
       + `<span class="g-name">${esc(camp.label)}</span>`
-      + warnIc + lockIc
-      + `<span class="g-count">${camp.segs.length}</span></div>`
+      + lockIc
+      + `<span class="g-count">${camp.segs.length}</span>`
+      + (camp.locked ? '' : `<button class="g-addf" data-ci="${a(camp.id)}" title="Flight toevoegen">+</button>`)
+      + `</div>`
       + `<div class="g-budget">${esc(fC(FS.calc.campaignBudget(camp)))}</div>`
       + `<div class="g-bars">${bars}</div></div>`;
   }
@@ -93,27 +104,18 @@
     const tc = autoTextColor(col);
     const sw = dateToWeek(flight.sd);
     const ew = dateToWeek(flight.ed);
+    const needAct = FS.calc.flightNeedsActuals(flight);
     let bars = '';
     if (!isExp) {
-      if (flight.tac && flight.tac.length) {
-        flight.tac.forEach((t, ti) => {
-          const tsw = dateToWeek(t.sd);
-          const tew = dateToWeek(t.ed);
-          const tcol = pickColor(t, { col });
-          const ttc = autoTextColor(tcol);
-          bars += barHTML(tsw, tew, tcol, ttc, t.n, t.b, flight.st || 'concept',
-            ` data-ci="${a(camp.id)}" data-fi="${fi}" data-ti="${ti}"`);
-        });
-      } else {
-        bars += barHTML(sw, ew, col, tc, flight.n, FS.calc.flightBudget(flight),
-          flight.st || 'concept', ` data-ci="${a(camp.id)}" data-fi="${fi}"`);
-      }
+      // Toon altijd één flight-bar; tactics worden pas zichtbaar als de flight
+      // wordt opengeklapt. Zo opent een klik op deze bar de flight-modal.
+      bars += barHTML(sw, ew, col, tc, flight.n, FS.calc.flightBudget(flight),
+        flight.st || 'concept', ` data-ci="${a(camp.id)}" data-fi="${fi}"`,
+        { actualized: !!flight.actualized, needAct });
     }
     const stc = statusColor(flight.st);
     const hasTac = !!(flight.tac && flight.tac.length);
-    const fNeed = FS.calc.flightNeedsActuals(flight);
     const fOk = flight.actualized ? `<span style="margin-left:4px;color:#059669;font-weight:700" title="Geactualiseerd">✓</span>` : '';
-    const fWarn = fNeed ? `<span class="g-need-act" title="Wacht op actualisatie">!</span>` : '';
     return `<div class="g-row g-sub${isExp ? ' g-exp' : ''}" data-ci="${a(camp.id)}" data-fi="${fi}">`
       + `<div class="g-label">`
       + (hasTac
@@ -121,7 +123,7 @@
         : `<span style="width:14px"></span>`)
       + `<span class="g-fdot" style="background:${a(col)}"></span>`
       + `<span class="g-name">${esc(flight.n || `Flight ${fi + 1}`)}</span>`
-      + fWarn + fOk
+      + fOk
       + (stc ? `<span class="g-sdot" style="background:${a(stc)}"></span>` : '')
       + `</div><div class="g-budget">${esc(fC(FS.calc.flightBudget(flight)))}</div>`
       + `<div class="g-bars">${bars}</div></div>`;

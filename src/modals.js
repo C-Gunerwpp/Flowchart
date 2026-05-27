@@ -307,7 +307,7 @@
     document.getElementById('modalNav').innerHTML = nav;
     const fBody = document.getElementById('modalBody');
     fBody.innerHTML = h;
-    fBody.classList.toggle('mb-locked', !!camp.locked);
+    fBody.classList.toggle('mb-locked', !!camp.locked || !!f.actualized);
     openModal();
     FS.render.render();
   }
@@ -330,6 +330,9 @@
       h += `<div class="act-banner act-lock"><span class="act-ic">🔒</span>`
         + `<span class="act-msg">Campagne is vergrendeld na actualisatie. Ontgrendel om wijzigingen te maken.</span>`
         + `<button class="act-btn allow-locked" id="mCunlockT">🔓 Ontgrendel</button></div>`;
+    } else if (f.actualized) {
+      h += `<div class="act-banner act-ok"><span class="act-ic">✅</span>`
+        + `<span class="act-msg">Flight is geactualiseerd. Open de flight om te heropenen.</span></div>`;
     }
     h += `<div class="mf"><div class="mf-row">`
       + `<div class="mf-field" style="flex:2"><label>Tactic naam</label>`
@@ -406,7 +409,7 @@
     document.getElementById('modalNav').innerHTML = nav;
     const tBody = document.getElementById('modalBody');
     tBody.innerHTML = h;
-    tBody.classList.toggle('mb-locked', !!camp.locked);
+    tBody.classList.toggle('mb-locked', !!camp.locked || !!f.actualized);
     document.getElementById('modal').classList.add('wide');
     openModal();
     FS.render.render();
