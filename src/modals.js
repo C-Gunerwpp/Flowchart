@@ -140,7 +140,20 @@
     const nav = `<strong>${esc(camp.label)}</strong>`
       + `<span style="opacity:.5;margin-left:8px;font-size:9px">${camp.segs.length} flights</span>`;
 
-    let h = `<div class="mf"><div class="mf-row">`
+    let h = '';
+    if (camp.locked) {
+      h += `<div class="act-banner act-lock"><span class="act-ic">🔒</span>`
+        + `<span class="act-msg">Deze campagne is vergrendeld na actualisatie van alle flights.</span>`
+        + `<button class="act-btn allow-locked" id="mCunlock">🔓 Ontgrendel</button></div>`;
+    } else {
+      const need = (camp.segs || []).filter((fl) => FS.calc.flightNeedsActuals(fl)).length;
+      if (need > 0) {
+        h += `<div class="act-banner act-warn"><span class="act-ic">⚠️</span>`
+          + `<span class="act-msg">${need} ${need === 1 ? 'flight wacht' : 'flights wachten'} op actualisatie. Open de flight en vul de werkelijke bestedingen in.</span></div>`;
+      }
+    }
+
+    h += `<div class="mf"><div class="mf-row">`
       + `<div class="mf-field" style="flex:2"><label>Campagnenaam</label>`
       + `<input id="mCname" type="text" value="${a(camp.label)}"></div>`
       + `<div class="mf-field"><label>Sectie</label><select id="mCsec">`
@@ -162,9 +175,12 @@
     } else {
       camp.segs.forEach((f, fi) => {
         const stc = statusColor(f.st);
+        const needAct = FS.calc.flightNeedsActuals(f);
         h += `<div class="m-item" data-fi="${fi}">`
           + `<div class="m-item-dot" style="background:${a(pickColor(f, camp))}"></div>`
           + `<div class="m-item-info"><div class="m-item-name">${esc(f.n || `Flight ${fi + 1}`)}`
+          + (needAct ? `<span class="g-need-act" title="Wacht op actualisatie">!</span>` : '')
+          + (f.actualized ? `<span style="margin-left:6px;color:#059669;font-size:10px" title="Geactualiseerd">✓</span>` : '')
           + (stc ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${a(stc)};margin-left:6px;vertical-align:middle"></span>` : '')
           + `</div><div class="m-item-meta">`
           + `<span>${esc(fK(FS.calc.flightBudget(f)))}</span>`
@@ -188,7 +204,9 @@
     }
 
     document.getElementById('modalNav').innerHTML = nav;
-    document.getElementById('modalBody').innerHTML = h;
+    const cBody = document.getElementById('modalBody');
+    cBody.innerHTML = h;
+    cBody.classList.toggle('mb-locked', !!camp.locked);
     openModal();
     FS.render.render();
   }
@@ -205,7 +223,22 @@
       + `<span style="opacity:.4;margin:0 6px">›</span>`
       + `<strong>✈️ ${esc(f.n || `Flight ${fi + 1}`)}</strong>`;
 
-    let h = `<div class="mf"><div class="mf-row">`
+    let h = '';
+    if (camp.locked) {
+      h += `<div class="act-banner act-lock"><span class="act-ic">🔒</span>`
+        + `<span class="act-msg">Campagne is vergrendeld na actualisatie. Ontgrendel om wijzigingen te maken.</span>`
+        + `<button class="act-btn allow-locked" id="mCunlockF">🔓 Ontgrendel</button></div>`;
+    } else if (f.actualized) {
+      h += `<div class="act-banner act-ok"><span class="act-ic">✅</span>`
+        + `<span class="act-msg">Flight is geactualiseerd op ${esc(f.actualizedAt || '')}.</span>`
+        + `<button class="act-btn" id="mFreopen">↩ Heropenen</button></div>`;
+    } else if (FS.calc.flightNeedsActuals(f)) {
+      h += `<div class="act-banner act-warn"><span class="act-ic">⚠️</span>`
+        + `<span class="act-msg">Deze flight is afgelopen. Vul de werkelijke bestedingen per tactic in en markeer als actual.</span>`
+        + `<button class="act-btn" id="mFactual">📋 Maak actual</button></div>`;
+    }
+
+    h += `<div class="mf"><div class="mf-row">`
       + `<div class="mf-field" style="flex:2"><label>Flight naam</label>`
       + `<input id="mFname" type="text" value="${a(f.n || '')}"></div>`
       + `<div class="mf-field"><label>Status</label><select id="mFst">`;
@@ -272,7 +305,9 @@
     }
 
     document.getElementById('modalNav').innerHTML = nav;
-    document.getElementById('modalBody').innerHTML = h;
+    const fBody = document.getElementById('modalBody');
+    fBody.innerHTML = h;
+    fBody.classList.toggle('mb-locked', !!camp.locked);
     openModal();
     FS.render.render();
   }
@@ -290,7 +325,13 @@
       + `<span style="opacity:.4;margin:0 6px">›</span>`
       + `<strong>${esc(t.n || `Tactic ${ti + 1}`)}</strong>`;
 
-    let h = `<div class="mf"><div class="mf-row">`
+    let h = '';
+    if (camp.locked) {
+      h += `<div class="act-banner act-lock"><span class="act-ic">🔒</span>`
+        + `<span class="act-msg">Campagne is vergrendeld na actualisatie. Ontgrendel om wijzigingen te maken.</span>`
+        + `<button class="act-btn allow-locked" id="mCunlockT">🔓 Ontgrendel</button></div>`;
+    }
+    h += `<div class="mf"><div class="mf-row">`
       + `<div class="mf-field" style="flex:2"><label>Tactic naam</label>`
       + `<input id="mTname" type="text" value="${a(t.n || '')}"></div></div>`;
 
@@ -363,7 +404,9 @@
     }
 
     document.getElementById('modalNav').innerHTML = nav;
-    document.getElementById('modalBody').innerHTML = h;
+    const tBody = document.getElementById('modalBody');
+    tBody.innerHTML = h;
+    tBody.classList.toggle('mb-locked', !!camp.locked);
     document.getElementById('modal').classList.add('wide');
     openModal();
     FS.render.render();
@@ -411,6 +454,15 @@
     });
     h += `</div></div></section>`;
 
+    // -- Notificaties --
+    const notifyOn = !!(s.settings && s.settings.notifyActuals);
+    h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-fe">🔔</span><h4>Notificaties</h4></div><div class="ss-body">`
+      + `<div class="ss-toggle"><label for="sjNotifyAct">Meld onafgewerkte flights bij openen`
+      + `<span class="ss-hint-sm">Toont bij het laden een waarschuwing als flights nog niet geactualiseerd zijn.</span>`
+      + `</label>`
+      + `<div class="tg-sw${notifyOn ? ' on' : ''}" id="sjNotifyAct" role="switch" aria-checked="${notifyOn}" tabindex="0"></div>`
+      + `</div></div></section>`;
+
     document.getElementById('settBody').innerHTML = h;
   }
 
@@ -436,9 +488,84 @@
     showFlightModal(ci, fi);
   }
 
+  /* ------- Actualisatie / lock ------- */
+  function actualizeFlight(ci, fi) {
+    const camp = FS.state.campaigns[ci];
+    const f = camp.segs[fi];
+    if (!f) return;
+    const now = new Date();
+    f.actualized = true;
+    f.actualizedAt = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+    // Als alle flights van de campagne geactualiseerd zijn → campagne vergrendelen
+    const allDone = (camp.segs || []).length > 0
+      && camp.segs.every((fl) => fl.actualized);
+    if (allDone && !camp.locked) {
+      camp.locked = true;
+      if (FS.toast) FS.toast.show(`Campagne "${camp.label}" is vergrendeld na actualisatie.`, 'success', 4500);
+    } else if (FS.toast) {
+      FS.toast.show(`Flight gemarkeerd als actual.`, 'success');
+    }
+    if (FS.io) FS.io.autoSave();
+    showFlightModal(ci, fi);
+  }
+
+  function reopenFlight(ci, fi) {
+    const camp = FS.state.campaigns[ci];
+    const f = camp.segs[fi];
+    if (!f) return;
+    showConfirm(
+      `Weet je zeker dat je deze flight wilt heropenen?<br><span style="font-size:11px;color:#6B7280">De campagne wordt automatisch ontgrendeld zodat je weer kunt aanpassen.</span>`,
+      (ok) => {
+        if (!ok) return;
+        delete f.actualized;
+        delete f.actualizedAt;
+        if (camp.locked) camp.locked = false;
+        if (FS.io) FS.io.autoSave();
+        showFlightModal(ci, fi);
+      },
+      '↩',
+    );
+  }
+
+  function unlockCampaign(ci, redirect) {
+    const camp = FS.state.campaigns[ci];
+    if (!camp) return;
+    showConfirm(
+      `Campagne <strong>${esc(camp.label)}</strong> ontgrendelen?<br><span style="font-size:11px;color:#6B7280">Je kunt daarna weer wijzigingen maken aan flights en tactics.</span>`,
+      (ok) => {
+        if (!ok) return;
+        camp.locked = false;
+        if (FS.io) FS.io.autoSave();
+        if (FS.toast) FS.toast.show('Campagne ontgrendeld.', 'info');
+        if (redirect === 'flight' && FS.state.selectedFlight !== null) {
+          showFlightModal(ci, FS.state.selectedFlight);
+        } else if (redirect === 'tactic' && FS.state.selectedTactic !== null) {
+          showTacticModal(ci, FS.state.selectedFlight, FS.state.selectedTactic);
+        } else {
+          showCampModal(ci);
+        }
+      },
+      '🔓',
+    );
+  }
+
+  /** Toon (indien notificaties aanstaan) een toast met flights die wachten op actualisatie. */
+  function notifyPendingActuals() {
+    if (!FS.state.settings || !FS.state.settings.notifyActuals) return;
+    const list = FS.calc.listNeedActuals();
+    if (!list.length) return;
+    const names = list.slice(0, 3).map((x) => x.camp.label || 'campagne').join(', ');
+    const extra = list.length > 3 ? ` (+${list.length - 3} meer)` : '';
+    const msg = list.length === 1
+      ? `1 flight wacht op actualisatie: ${names}`
+      : `${list.length} flights wachten op actualisatie: ${names}${extra}`;
+    if (FS.toast) FS.toast.show(msg, 'warn', 7000);
+  }
+
   FS.modals = {
     showConfirm, answerConfirm, openModal, closeModal, openSett, closeSett,
     checkCampBudget, clampFlightTactics, showCampModal, showFlightModal, showTacticModal,
     renderSettings, addFlight, addTactic,
+    actualizeFlight, reopenFlight, unlockCampaign, notifyPendingActuals,
   };
 })(window.FS = window.FS || {});

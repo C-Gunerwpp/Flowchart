@@ -85,6 +85,32 @@
     return total;
   }
 
+  /* ----- Actualisatie-helpers ----- */
+  function todayStr() {
+    const d = new Date();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
+  }
+  function flightEnded(flight) {
+    if (!flight || !flight.ed) return false;
+    return flight.ed < todayStr();
+  }
+  /** Flight wacht op actualisatie als hij voorbij is en nog niet ge-actualised is. */
+  function flightNeedsActuals(flight) {
+    return flightEnded(flight) && !flight.actualized;
+  }
+  /** Lijst van { camp, flight, ci, fi } voor alle flights die nog actual gemaakt moeten worden. */
+  function listNeedActuals() {
+    const out = [];
+    FS.state.campaigns.forEach((c, ci) => {
+      (c.segs || []).forEach((f, fi) => {
+        if (flightNeedsActuals(f)) out.push({ camp: c, flight: f, ci, fi });
+      });
+    });
+    return out;
+  }
+
   FS.calc = {
     calcJaar,
     calcCreatie,
@@ -100,5 +126,8 @@
     channelFee,
     tacticFee,
     totalFee,
+    flightEnded,
+    flightNeedsActuals,
+    listNeedActuals,
   };
 })(window.FS = window.FS || {});

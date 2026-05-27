@@ -72,11 +72,15 @@
       });
     }
     const selected = camp.id === FS.state.selectedCamp;
+    const needAct = (camp.segs || []).some((f) => FS.calc.flightNeedsActuals(f));
+    const lockIc = camp.locked ? `<span style="margin-left:4px;font-size:10px" title="Vergrendeld">🔒</span>` : '';
+    const warnIc = needAct ? `<span class="g-need-act" title="Wacht op actualisatie">!</span>` : '';
     return `<div class="g-row g-camp${isExp ? ' g-exp' : ''}${selected ? ' g-sel' : ''}" data-ci="${a(camp.id)}">`
       + `<div class="g-label">`
       + `<span class="g-toggle" data-ci="${a(camp.id)}">${isExp ? '▼' : '▶'}</span>`
       + `<span class="g-dot" style="background:${a(camp.col)}"></span>`
       + `<span class="g-name">${esc(camp.label)}</span>`
+      + warnIc + lockIc
       + `<span class="g-count">${camp.segs.length}</span></div>`
       + `<div class="g-budget">${esc(fC(FS.calc.campaignBudget(camp)))}</div>`
       + `<div class="g-bars">${bars}</div></div>`;
@@ -107,6 +111,9 @@
     }
     const stc = statusColor(flight.st);
     const hasTac = !!(flight.tac && flight.tac.length);
+    const fNeed = FS.calc.flightNeedsActuals(flight);
+    const fOk = flight.actualized ? `<span style="margin-left:4px;color:#059669;font-weight:700" title="Geactualiseerd">✓</span>` : '';
+    const fWarn = fNeed ? `<span class="g-need-act" title="Wacht op actualisatie">!</span>` : '';
     return `<div class="g-row g-sub${isExp ? ' g-exp' : ''}" data-ci="${a(camp.id)}" data-fi="${fi}">`
       + `<div class="g-label">`
       + (hasTac
@@ -114,6 +121,7 @@
         : `<span style="width:14px"></span>`)
       + `<span class="g-fdot" style="background:${a(col)}"></span>`
       + `<span class="g-name">${esc(flight.n || `Flight ${fi + 1}`)}</span>`
+      + fWarn + fOk
       + (stc ? `<span class="g-sdot" style="background:${a(stc)}"></span>` : '')
       + `</div><div class="g-budget">${esc(fC(FS.calc.flightBudget(flight)))}</div>`
       + `<div class="g-bars">${bars}</div></div>`;

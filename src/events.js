@@ -25,6 +25,9 @@
     FS.render.render();
     if (FS.history) FS.history.updateButtons();
     if (FS.ganttInteract) FS.ganttInteract.applyZoom();
+    if (FS.modals && FS.modals.notifyPendingActuals) {
+      setTimeout(() => FS.modals.notifyPendingActuals(), 600);
+    }
   }
 
   FS.events = { showApp };
@@ -344,6 +347,19 @@
       if (id === 'mFadd') { FS.modals.addFlight(ci); return; }
       if (id === 'mTadd' && s.selectedFlight !== null) { FS.modals.addTactic(ci, s.selectedFlight); return; }
 
+      /* Actualisatie + lock */
+      if (id === 'mFactual' && s.selectedFlight !== null) {
+        FS.modals.actualizeFlight(ci, s.selectedFlight);
+        return;
+      }
+      if (id === 'mFreopen' && s.selectedFlight !== null) {
+        FS.modals.reopenFlight(ci, s.selectedFlight);
+        return;
+      }
+      if (id === 'mCunlock') { FS.modals.unlockCampaign(ci, 'camp'); return; }
+      if (id === 'mCunlockF') { FS.modals.unlockCampaign(ci, 'flight'); return; }
+      if (id === 'mCunlockT') { FS.modals.unlockCampaign(ci, 'tactic'); return; }
+
       if (id === 'mCdel') {
         FS.modals.showConfirm(
           `Weet je zeker dat je <strong>${FS.utils.escapeHtml(s.campaigns[ci].label)}</strong> wilt verwijderen?<br><br>Dit kan niet ongedaan worden gemaakt.`,
@@ -646,6 +662,13 @@
           obj.mods.splice(parseInt(t.dataset.i, 10), 1);
           afterSettChange();
         }
+        return;
+      }
+      if (t.id === 'sjNotifyAct') {
+        FS.state.settings = FS.state.settings || {};
+        FS.state.settings.notifyActuals = !FS.state.settings.notifyActuals;
+        FS.io.autoSave();
+        FS.modals.renderSettings();
       }
     });
 

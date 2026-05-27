@@ -21,6 +21,7 @@
     selectedCamp: null,
     selectedFlight: null,
     selectedTactic: null,
+    settings: { notifyActuals: false },
   };
 
   FS.state.reset = function reset() {
@@ -38,5 +39,6 @@
     s.selectedCamp = null;
     s.selectedFlight = null;
     s.selectedTactic = null;
+    s.settings = { notifyActuals: false };
   };
 })(window.FS = window.FS || {});

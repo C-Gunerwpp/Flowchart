@@ -22,6 +22,7 @@
         fees: s.fees,
         yr: s.year,
         client: s.client,
+        settings: s.settings,
       }));
       const status = document.getElementById('autoSaveStatus');
       if (status) {
@@ -61,6 +62,7 @@
       s.campaigns = d.D || [];
       s.nextId = d.n || 100;
       s.fees = d.fees || {};
+      s.settings = Object.assign({ notifyActuals: false }, d.settings || {});
       normalize(s.campaigns);
     } catch (_e) {
       // Corrupt storage — leave defaults.
@@ -113,6 +115,7 @@
         tooling: s.toolingJournal,
         fees: s.fees,
         year: s.year,
+        user: s.settings,
       },
       campaigns: s.campaigns,
       nextId: s.nextId,
@@ -186,6 +189,7 @@
         }
         s.fees = settings.fees || {};
         s.year = settings.year || FS.constants.DEFAULT_YEAR;
+        s.settings = Object.assign({ notifyActuals: false }, settings.user || {});
         s.client = (d.meta && d.meta.client) || '';
         s.campaigns = d.campaigns;
         s.nextId = d.nextId || 100;
