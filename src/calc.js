@@ -94,7 +94,20 @@
   }
   function flightEnded(flight) {
     if (!flight || !flight.ed) return false;
-    return flight.ed < todayStr();
+    // Beschouw de flight pas als "afgelopen" zodra de volledige (ISO-)week
+    // van de einddatum voorbij is. Dus zondag (einde ISO-week) van flight.ed
+    // moet kleiner zijn dan vandaag.
+    const parts = flight.ed.split('-');
+    if (parts.length !== 3) return false;
+    const ed = new Date(Date.UTC(+parts[0], +parts[1] - 1, +parts[2]));
+    if (Number.isNaN(ed.getTime())) return false;
+    // JS UTC: 0=zo..6=za → ISO dow Mon=1..Sun=7
+    const dow = ((ed.getUTCDay() + 6) % 7) + 1;
+    ed.setUTCDate(ed.getUTCDate() + (7 - dow));
+    const m = String(ed.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(ed.getUTCDate()).padStart(2, '0');
+    const sunday = `${ed.getUTCFullYear()}-${m}-${day}`;
+    return sunday < todayStr();
   }
   /** Flight wacht op actualisatie als hij voorbij is en nog niet ge-actualised is. */
   function flightNeedsActuals(flight) {
