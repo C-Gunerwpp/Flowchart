@@ -552,17 +552,42 @@
     );
   }
 
-  /** Toon (indien notificaties aanstaan) een toast met flights die wachten op actualisatie. */
+  /** Toon (indien notificaties aanstaan) een popup met flights die wachten op actualisatie. */
   function notifyPendingActuals() {
     if (!FS.state.settings || !FS.state.settings.notifyActuals) return;
     const list = FS.calc.listNeedActuals();
     if (!list.length) return;
-    const names = list.slice(0, 3).map((x) => x.camp.label || 'campagne').join(', ');
-    const extra = list.length > 3 ? ` (+${list.length - 3} meer)` : '';
-    const msg = list.length === 1
-      ? `1 flight wacht op actualisatie: ${names}`
-      : `${list.length} flights wachten op actualisatie: ${names}${extra}`;
-    if (FS.toast) FS.toast.show(msg, 'warn', 7000);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+    const items = list.slice(0, 8).map((x) => {
+      const fname = (x.flight && x.flight.n) || `Flight ${x.fi + 1}`;
+      const cname = (x.camp && x.camp.label) || 'Campagne';
+      const end = (x.flight && x.flight.ed) || '';
+      return `<li style="margin:4px 0"><strong>${esc(cname)}</strong> &mdash; ${esc(fname)}`
+        + (end ? ` <span style="color:#6B7280;font-size:11px">(eindigde ${esc(end)})</span>` : '')
+        + `</li>`;
+    }).join('');
+    const more = list.length > 8 ? `<div style="margin-top:6px;color:#6B7280;font-size:11px">+${list.length - 8} meer</div>` : '';
+    const html = `<div style="text-align:left">`
+      + `<div style="font-weight:700;margin-bottom:8px">${list.length} flight${list.length === 1 ? '' : 's'} wacht${list.length === 1 ? '' : 'en'} op actualisatie</div>`
+      + `<ul style="margin:0;padding-left:18px;max-height:240px;overflow-y:auto">${items}</ul>${more}`
+      + `<div style="margin-top:10px;color:#6B7280;font-size:11px">Klik <em>Open</em> om de eerste te actualiseren.</div>`
+      + `</div>`;
+    // Pas knop-labels aan voor deze popup
+    const yesBtn = document.getElementById('cfmYes');
+    const noBtn = document.getElementById('cfmNo');
+    const prevYes = yesBtn ? yesBtn.textContent : '';
+    const prevNo = noBtn ? noBtn.textContent : '';
+    if (yesBtn) yesBtn.textContent = 'Open';
+    if (noBtn) noBtn.textContent = 'Sluiten';
+    showConfirm(html, (ok) => {
+      if (yesBtn) yesBtn.textContent = prevYes;
+      if (noBtn) noBtn.textContent = prevNo;
+      if (ok && list[0]) {
+        showFlightModal(list[0].ci, list[0].fi);
+      }
+    }, '🔔');
   }
 
   FS.modals = {

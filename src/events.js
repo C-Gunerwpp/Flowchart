@@ -189,11 +189,14 @@
           const camp = FS.state.campaigns[idx];
           if (camp.locked) return;
           FS.state.expanded[ci] = true;
+          const n = (camp.segs && camp.segs.length) || 0;
           camp.segs.push({
-            n: '', sd: FS.utils.today(), ed: FS.utils.today(),
+            n: `Flight ${n + 1}`, sd: FS.utils.today(), ed: FS.utils.today(),
             b: 0, cb: 0, tc: 0, col: '', st: 'concept', nt: '', tac: [],
           });
-          FS.modals.showFlightModal(idx, camp.segs.length - 1);
+          FS.render.render();
+          if (FS.io && FS.io.autoSave) FS.io.autoSave();
+          if (FS.toast) FS.toast.show('Flight toegevoegd — versleep om te plaatsen', 'success', 2500);
         }
         return;
       }
