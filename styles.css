@@ -314,6 +314,20 @@ body{font-family:'Inter',sans-serif;background:#0a0e2a;color:#fff;min-height:100
 .gantt .gh-m{text-align:center;display:flex;align-items:center;justify-content:center;border-left:1px solid rgba(255,255,255,.12);text-transform:uppercase;letter-spacing:.5px}
 .gantt .gh-m:first-child{border-left:none}
 
+/* Currency input wrapper — toont € teken vóór bedragvelden */
+.cur-wrap{position:relative;display:block}
+.cur-wrap>.cur-sym{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700;color:#6B7280;pointer-events:none;line-height:1}
+.cur-wrap>input{padding-left:22px !important;width:100%;box-sizing:border-box}
+/* Compacte variant (channel-inputs in tactic-modal) */
+.cur-wrap.cur-sm>.cur-sym{left:6px;font-size:10px}
+.cur-wrap.cur-sm>input{padding-left:16px !important;text-align:right}
+/* Settings journal */
+.cur-wrap.cur-j>.cur-sym{left:8px;font-size:11px}
+.cur-wrap.cur-j>input{padding-left:18px !important}
+/* Label met hover-help (toont vraagteken naast label) */
+.mf-field label .lbl-help{display:inline-block;margin-left:4px;width:12px;height:12px;line-height:12px;text-align:center;border-radius:50%;background:#E5E7EB;color:#6B7280;font-size:8px;font-weight:700;cursor:help;vertical-align:middle;text-transform:none}
+.mf-field label .lbl-help:hover{background:#0026C5;color:#fff}
+
 /* Huidige-week-indicator: kop-cel + verticale lijn over alle rijen */
 .gantt .gh-nw{background:rgba(220,38,38,.35)!important;color:#fff;font-weight:800;box-shadow:inset 0 -2px 0 #DC2626}
 .g-now-line{position:absolute;top:0;bottom:0;width:2px;background:#DC2626;pointer-events:none;z-index:5;box-shadow:0 0 0 1px rgba(255,255,255,.45)}

@@ -147,8 +147,8 @@
       + `<option value="losse"${camp.sec === 'losse' ? ' selected' : ''}>Campagnes</option>`
       + `<option value="ao"${camp.sec === 'ao' ? ' selected' : ''}>Always-On</option>`
       + `</select></div></div>`;
-    h += `<div class="mf-row"><div class="mf-field"><label>Budget (0=auto)</label>`
-      + `<input id="mCbudget" type="number" value="${camp.budget || 0}" step="1000"></div>`
+    h += `<div class="mf-row"><div class="mf-field"><label>Budget<span class="lbl-help" title="Laat op 0 staan om automatisch het totaal van de flights te gebruiken.">?</span></label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mCbudget" type="number" value="${camp.budget || 0}" step="1000"></span></div>`
       + `<div class="mf-field"><label>Kleur</label>${palHTML(camp.col)}</div></div>`;
     h += `<div class="mf-actions">`
       + `<button class="mbtn" id="mCup">▲</button>`
@@ -221,14 +221,14 @@
       + `<div class="mf-field"><label>Eind / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mFed" type="date" value="${a(f.ed)}" style="width:130px">`
       + `<input id="mFew" type="number" value="${dateToWeek(f.ed)}" min="1" max="53" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
-      + `<div class="mf-field"><label>Budget (0=auto)</label>`
-      + `<input id="mFb" type="number" value="${f.b || 0}" step="1000"></div></div>`;
+      + `<div class="mf-field"><label>Budget<span class="lbl-help" title="Laat op 0 staan om automatisch het totaal van de tactics te gebruiken.">?</span></label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFb" type="number" value="${f.b || 0}" step="1000"></span></div></div>`;
 
     h += `<div class="mf-row">`
       + `<div class="mf-field"><label style="color:#EC4899">🎨 Creatie</label>`
-      + `<input id="mFcb" type="number" value="${f.cb || 0}" step="100" style="border-color:#FBCFE8;background:#FDF2F8"></div>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFcb" type="number" value="${f.cb || 0}" step="100" style="border-color:#FBCFE8;background:#FDF2F8"></span></div>`
       + `<div class="mf-field"><label style="color:#1E40AF">🔧 Tooling</label>`
-      + `<input id="mFtc" type="number" value="${f.tc || 0}" step="100" style="border-color:#BFDBFE;background:#EFF6FF"></div></div>`;
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFtc" type="number" value="${f.tc || 0}" step="100" style="border-color:#BFDBFE;background:#EFF6FF"></span></div></div>`;
 
     h += `<div class="mf-actions">`
       + `<button class="mbtn" id="mFshiftL4" title="4 weken naar links">«</button>`
@@ -301,19 +301,19 @@
       + `<div class="mf-field"><label>Eind / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mTed" type="date" value="${a(t.ed)}" min="${a(f.sd)}" max="${a(f.ed)}" style="width:130px">`
       + `<input id="mTew" type="number" value="${dateToWeek(t.ed)}" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
-      + `<div class="mf-field"><label>Budget (incl. fee)</label>`
-      + `<input id="mTb" type="number" value="${t.b}" step="100"></div></div>`;
+      + `<div class="mf-field"><label>Budget<span class="lbl-help" title="Het tactic-budget is inclusief mediafee.">?</span></label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mTb" type="number" value="${t.b}" step="100"></span></div></div>`;
 
     const act = t.actual || 0;
     const dAct = act - t.b;
     const dCol = dAct > 0 ? '#DC2626' : dAct < 0 ? '#059669' : '#6B7280';
     const dSign = dAct > 0 ? '+' : '';
     const dHtml = act
-      ? `<input value="${dSign}${esc(fC(dAct))}" disabled style="color:${dCol};font-weight:700">`
-      : `<input value="–" disabled style="color:#94A3B8">`;
+      ? `<span class="cur-wrap"><span class="cur-sym">€</span><input value="${dSign}${esc(fC(dAct).replace(/^€\s?/, ''))}" disabled style="color:${dCol};font-weight:700"></span>`
+      : `<span class="cur-wrap"><span class="cur-sym" style="color:#CBD5E1">€</span><input value="–" disabled style="color:#94A3B8"></span>`;
     h += `<div class="mf-row">`
       + `<div class="mf-field"><label>💵 Werkelijk besteed</label>`
-      + `<input id="mTact" type="number" value="${act}" step="100" placeholder="0" style="border-color:#FED7AA;background:#FFF7ED"></div>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mTact" type="number" value="${act}" step="100" placeholder="0" style="border-color:#FED7AA;background:#FFF7ED"></span></div>`
       + `<div class="mf-field"><label>Verschil</label>${dHtml}</div></div>`;
 
     h += `<div class="mf-row"><div class="mf-field"><label>Kleur</label>${palHTML(t.col || '')}</div></div>`;
@@ -334,7 +334,7 @@
       h += `<div class="ch-item${hasV ? ' hv' : ''}"><div class="ch-top"><div class="ch-left">`
         + `<div class="ch-ic">${ch.icon}</div><span class="ch-nm">${esc(ch.name)}</span>`
         + (fp ? `<span class="ch-fp">${esc(fp)}</span>` : '')
-        + `</div><input type="number" class="chv" data-ch="${a(ch.id)}" value="${v}" step="100" min="0"></div>`;
+        + `</div><span class="cur-wrap cur-sm" style="width:90px;display:inline-block"><span class="cur-sym">€</span><input type="number" class="chv" data-ch="${a(ch.id)}" value="${v}" step="100" min="0"></span></div>`;
       if (hasV) {
         const mets = FS.constants.CHANNEL_METRICS[ch.id] || ['Impressies'];
         const tm = (t.met && t.met[ch.id]) || {};
@@ -377,7 +377,7 @@
     // -- Budget --
     let h = `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-bg">💰</span><h4>Budget</h4></div><div class="ss-body">`
       + `<div class="j-row j-row-base"><span class="j-lbl">Basisbudget</span>`
-      + `<input type="number" class="j-amt" id="sjBase" value="${bj.base}" step="1000"></div>`;
+      + `<span class="cur-wrap cur-j" style="width:100%;display:inline-block"><span class="cur-sym">€</span><input type="number" class="j-amt" id="sjBase" value="${bj.base}" step="1000"></span></div>`;
     bj.mods.forEach((m, i) => { h += journalRow('bj', i, m, 1000); });
     h += `</div><div class="ss-foot"><button class="ss-add sjm-add" data-j="bj">+ Wijziging</button>`
       + `<span class="ss-tot">Totaal <strong>${esc(fC(s.jaarTotal))}</strong></span></div></section>`;
@@ -417,7 +417,7 @@
   function journalRow(journalKey, index, mod, step) {
     return `<div class="j-row">`
       + `<span class="j-sign ${mod.a >= 0 ? 'j-pos' : 'j-neg'}">${mod.a >= 0 ? '+' : '−'}</span>`
-      + `<input type="number" class="j-amt sjm-a" data-j="${a(journalKey)}" data-i="${index}" value="${mod.a}" step="${step}">`
+      + `<span class="cur-wrap cur-j" style="width:100%;display:inline-block;flex:0 0 auto"><span class="cur-sym">€</span><input type="number" class="j-amt sjm-a" data-j="${a(journalKey)}" data-i="${index}" value="${mod.a}" step="${step}"></span>`
       + `<input type="text" class="j-nt sjm-n" data-j="${a(journalKey)}" data-i="${index}" value="${a(mod.n || '')}" placeholder="Notitie">`
       + `<button class="j-del sjm-d" data-j="${a(journalKey)}" data-i="${index}" title="Verwijderen">✕</button></div>`;
   }

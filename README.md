@@ -22,6 +22,22 @@ Flowchart Studio is een browsergebaseerde planningstool voor mediastrategieën. 
 
 > De oude single-file versie staat onder `legacy/Flowchart_Studio_v13.5.html`.
 
+## Deploy / live omgeving
+
+De live versie draait op **GitHub Pages**: <https://c-gunerwpp.github.io/Flowchart/>.
+
+De site wordt rechtstreeks vanaf branch `main` geserveerd — er is **geen build-stap**. Elke wijziging op `main` moet dus gecommit én gepusht worden om live te komen:
+
+```powershell
+git add <bestanden>
+git commit -m "<beschrijving>"
+git push origin main
+```
+
+GitHub Pages bouwt binnen 1–2 minuten opnieuw. Doe daarna een **hard refresh** (Ctrl+F5) in de browser om de cache te omzeilen.
+
+> ⚠️ Reminder voor Copilot/agent: bij werken op `main` is een lokale wijziging niet zichtbaar op de live site totdat er gepusht is. Altijd commit + push uitvoeren wanneer de gebruiker vraagt om de live pagina te updaten.
+
 ## Installatie
 
 1. Open de repository in Visual Studio Code of een andere editor.
