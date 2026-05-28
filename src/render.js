@@ -6,7 +6,7 @@
   'use strict';
 
   const { escapeHtml: esc, escapeAttr: a, formatCurrency: fC, formatK: fK,
-    pickColor, autoTextColor, statusColor, dateToWeek, weekToMonth, getCurrentWeek } = FS.utils;
+    pickColor, autoTextColor, statusColor, dateToWeek, weekToDate, weekToMonth, getCurrentWeek } = FS.utils;
 
   const MONTH_LABELS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 
@@ -60,8 +60,19 @@
       let cls = '';
       if (i === 14 || i === 27 || i === 40) cls = ' gh-qd';
       if (nowWeek && i === nowWeek) cls += ' gh-nw';
-      const title = nowWeek && i === nowWeek ? ' title="Huidige week"' : '';
-      w += `<div class="${cls.trim()}"${title}>${i}</div>`;
+      const monStr = weekToDate(i);
+      const monDay = parseInt(monStr.slice(8), 10);
+      const sunD = new Date(`${monStr}T12:00:00`);
+      sunD.setDate(sunD.getDate() + 6);
+      const sunDay = sunD.getDate();
+      const title = nowWeek && i === nowWeek
+        ? ` title="Huidige week (${monStr} t/m ${sunD.toISOString().substring(0, 10)})"`
+        : ` title="Week ${i}: ${monStr} t/m ${sunD.toISOString().substring(0, 10)}"`;
+      w += `<div class="${cls.trim()}"${title}>`
+        + `<span class="ghw-wk">${i}</span>`
+        + `<span class="ghw-d">${monDay}</span>`
+        + `<span class="ghw-d">${sunDay}</span>`
+        + `</div>`;
     }
     return `${q}${m}${w}</div></div>`;
   }
@@ -172,11 +183,18 @@
         + `<div class="g-empty-kb"><kbd>Ctrl</kbd>+<kbd>N</kbd> nieuwe campagne · <kbd>Ctrl</kbd>+<kbd>S</kbd> opslaan · <kbd>?</kbd> sneltoetsen</div>`
         + `</div>`;
     } else {
+      // Groepeer altijd: eerst losse campagnes, daarna Always-On. Zo voorkomen
+      // we dat een willekeurig gesorteerd JSON-bestand meerdere sectiekoppen
+      // produceert tussen de campagnes door.
+      const losseList = camps.filter((c) => (c.sec || 'losse') !== 'ao');
+      const aoList = camps.filter((c) => c.sec === 'ao');
+      const ordered = losseList.concat(aoList);
       let lastSec = '';
-      camps.forEach((c) => {
-        if (c.sec !== lastSec) {
-          lastSec = c.sec;
-          html += `<div class="g-sec">${c.sec === 'ao' ? 'ALWAYS-ON' : 'CAMPAGNES'}</div>`;
+      ordered.forEach((c) => {
+        const secKey = c.sec === 'ao' ? 'ao' : 'losse';
+        if (secKey !== lastSec) {
+          lastSec = secKey;
+          html += `<div class="g-sec">${secKey === 'ao' ? 'ALWAYS-ON' : 'CAMPAGNES'}</div>`;
         }
         html += renderCampRow(c);
         if (FS.state.expanded[c.id]) {

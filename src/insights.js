@@ -11,6 +11,51 @@
 
   let isOpen = false;
 
+  // Filters (periode + kanalen). Worden bij eerste open of jaarwissel gereset.
+  let filters = null;
+  let filtersYear = null;
+  function ensureFilters() {
+    const y = FS.state.year;
+    if (filters && filtersYear === y) return;
+    filters = {
+      from: `${y}-01-01`,
+      to: `${y}-12-31`,
+      channels: new Set(FS.constants.CHANNELS.map((c) => c.id)),
+    };
+    filtersYear = y;
+  }
+
+  /* ----- Periode-helpers ----- */
+  function totalDays(sd, ed) {
+    if (!sd || !ed) return 0;
+    const a = new Date(`${sd}T12:00:00`);
+    const b = new Date(`${ed}T12:00:00`);
+    if (b < a) return 0;
+    return Math.floor((b - a) / 86400000) + 1;
+  }
+  function overlapDays(sd, ed) {
+    if (!sd || !ed) return 0;
+    const fromStr = filters.from;
+    const toStr = filters.to;
+    const aStr = sd < fromStr ? fromStr : sd;
+    const bStr = ed > toStr ? toStr : ed;
+    if (aStr > bStr) return 0;
+    const a = new Date(`${aStr}T12:00:00`);
+    const b = new Date(`${bStr}T12:00:00`);
+    return Math.floor((b - a) / 86400000) + 1;
+  }
+  function periodWeight(sd, ed) {
+    const tot = totalDays(sd, ed);
+    if (!tot) return 0;
+    return overlapDays(sd, ed) / tot;
+  }
+  function clampedPeriod(sd, ed) {
+    if (!sd || !ed) return null;
+    const a = sd < filters.from ? filters.from : sd;
+    const b = ed > filters.to ? filters.to : ed;
+    return a > b ? null : [a, b];
+  }
+
   function open() {
     const bg = document.getElementById('insBg');
     if (!bg) return;
@@ -31,12 +76,16 @@
   /* =====================  AGGREGATIES  ===================== */
 
   function aggregateChannels() {
+    ensureFilters();
     const totals = {};
     FS.state.campaigns.forEach((c) =>
       c.segs.forEach((f) =>
         (f.tac || []).forEach((t) => {
+          const w = periodWeight(t.sd, t.ed);
+          if (w <= 0) return;
           for (const k in (t.ch || {})) {
-            totals[k] = (totals[k] || 0) + (t.ch[k] || 0);
+            if (!filters.channels.has(k)) continue;
+            totals[k] = (totals[k] || 0) + (t.ch[k] || 0) * w;
           }
         }),
       ),
@@ -65,49 +114,63 @@
   }
 
   function aggregateMonthlySpend() {
+    ensureFilters();
     const year = FS.state.year;
     const media = new Array(12).fill(0);
     const creatie = new Array(12).fill(0);
     const tooling = new Array(12).fill(0);
     FS.state.campaigns.forEach((c) => {
       c.segs.forEach((f) => {
+        const rf = clampedPeriod(f.sd, f.ed);
         if (f.tac && f.tac.length) {
-          f.tac.forEach((t) => spreadOverMonths(t.sd, t.ed, t.b || 0, year, media));
-        } else {
-          spreadOverMonths(f.sd, f.ed, FS.calc.flightBudget(f), year, media);
+          f.tac.forEach((t) => {
+            const rt = clampedPeriod(t.sd, t.ed);
+            if (rt) spreadOverMonths(rt[0], rt[1], t.b || 0, year, media);
+          });
+        } else if (rf) {
+          spreadOverMonths(rf[0], rf[1], FS.calc.flightBudget(f), year, media);
         }
-        if (f.cb) spreadOverMonths(f.sd, f.ed, f.cb, year, creatie);
-        if (f.tc) spreadOverMonths(f.sd, f.ed, f.tc, year, tooling);
+        if (rf) {
+          if (f.cb) spreadOverMonths(rf[0], rf[1], f.cb, year, creatie);
+          if (f.tc) spreadOverMonths(rf[0], rf[1], f.tc, year, tooling);
+        }
       });
     });
     return { media, creatie, tooling };
   }
 
   function aggregateSectionSplit() {
+    ensureFilters();
     let ao = 0;
     let losse = 0;
     FS.state.campaigns.forEach((c) => {
-      const b = FS.calc.campaignBudget(c);
-      if (c.sec === 'ao') ao += b; else losse += b;
+      let total = 0;
+      c.segs.forEach((f) => {
+        const w = periodWeight(f.sd, f.ed);
+        if (w > 0) total += FS.calc.flightBudget(f) * w;
+      });
+      if (c.sec === 'ao') ao += total; else losse += total;
     });
     return { ao, losse };
   }
 
   function collectActuals() {
+    ensureFilters();
     const rows = [];
     FS.state.campaigns.forEach((c) =>
       c.segs.forEach((f) =>
         (f.tac || []).forEach((t) => {
-          if (t.actual && t.actual > 0) {
-            rows.push({
-              camp: c.label,
-              flight: f.n || '',
-              tactic: t.n || '',
-              planned: t.b || 0,
-              actual: t.actual,
-              variance: t.actual - (t.b || 0),
-            });
-          }
+          if (!(t.actual && t.actual > 0)) return;
+          const w = periodWeight(t.sd, t.ed);
+          if (w <= 0) return;
+          rows.push({
+            camp: c.label,
+            flight: f.n || '',
+            tactic: t.n || '',
+            planned: (t.b || 0) * w,
+            actual: (t.actual) * w,
+            variance: (t.actual - (t.b || 0)) * w,
+          });
         }),
       ),
     );
@@ -284,33 +347,80 @@
     const body = document.getElementById('insBody');
     if (!body) return;
     const s = FS.state;
+    ensureFilters();
 
+    // Gefilterde aggregaties
+    const spend = aggregateMonthlySpend();
+    const filtMedia = spend.media.reduce((a, v) => a + v, 0);
+    const filtCreatie = spend.creatie.reduce((a, v) => a + v, 0);
+    const filtTooling = spend.tooling.reduce((a, v) => a + v, 0);
+
+    // Full-year referenties (voor jaarbudget / fee / rest)
     const grandTotal = FS.calc.grandTotal();
     const totalFee = FS.calc.totalFee();
     const totCreatie = FS.calc.totalCreatieFlights() + FS.calc.calcCreatie();
     const totTooling = FS.calc.totalToolingFlights() + FS.calc.calcTooling();
     const jaar = s.jaarTotal;
     const rest = jaar - grandTotal - totCreatie - totTooling;
+
     const numCamps = s.campaigns.length;
     const numFlights = s.campaigns.reduce((a, c) => a + c.segs.length, 0);
     const numTactics = s.campaigns.reduce((a, c) =>
       a + c.segs.reduce((b, f) => b + (f.tac ? f.tac.length : 0), 0), 0);
 
-    let h = '';
+    const totalChan = FS.constants.CHANNELS.length;
+    const activeChan = filters.channels.size;
+    const isFiltered = filters.from !== `${s.year}-01-01`
+      || filters.to !== `${s.year}-12-31`
+      || activeChan !== totalChan;
+
+    // Filterpaneel
+    const chanBoxes = FS.constants.CHANNELS.map((ch) => {
+      const checked = filters.channels.has(ch.id) ? ' checked' : '';
+      return `<label class="ins-chan"><input type="checkbox" data-ch="${esc(ch.id)}"${checked}> ${esc(ch.icon)} ${esc(ch.name)}</label>`;
+    }).join('');
+
+    let h = `<div class="ins-filters">`
+      + `<div class="ins-filt-row">`
+      + `<div class="ins-filt-grp">`
+      + `<div class="ins-filt-l">📅 Periode</div>`
+      + `<input type="date" id="insFrom" value="${esc(filters.from)}">`
+      + `<span class="ins-filt-dash">t/m</span>`
+      + `<input type="date" id="insTo" value="${esc(filters.to)}">`
+      + `<button class="mbtn" id="insFiltReset" title="Hele jaar">↺ Jaar</button>`
+      + `</div>`
+      + `<div class="ins-filt-grp">`
+      + `<button class="mbtn" id="insPq1">Q1</button>`
+      + `<button class="mbtn" id="insPq2">Q2</button>`
+      + `<button class="mbtn" id="insPq3">Q3</button>`
+      + `<button class="mbtn" id="insPq4">Q4</button>`
+      + `</div>`
+      + `</div>`
+      + `<div class="ins-filt-row">`
+      + `<div class="ins-filt-l">📊 Kanalen <span class="ins-filt-mini">(${activeChan}/${totalChan})</span></div>`
+      + `<button class="mbtn mini" id="insChanAll">Alle</button>`
+      + `<button class="mbtn mini" id="insChanNone">Geen</button>`
+      + `<div class="ins-chans">${chanBoxes}</div>`
+      + `</div>`
+      + (isFiltered
+        ? `<div class="ins-filt-note">⚠ Gefilterde weergave — bedragen in grafieken zijn naar rato van de geselecteerde periode/kanalen.</div>`
+        : '')
+      + `</div>`;
+
     h += `<div class="ins-grid">`
       + kpi('🎯 Jaarbudget', fC(jaar))
-      + kpi('📺 Media (campagnes)', fC(grandTotal))
-      + kpi('🎨 Creatie', fC(totCreatie))
-      + kpi('🔧 Tooling', fC(totTooling))
+      + kpi(isFiltered ? '📺 Media (periode)' : '📺 Media (campagnes)', fC(filtMedia))
+      + kpi(isFiltered ? '🎨 Creatie (periode)' : '🎨 Creatie', fC(filtCreatie))
+      + kpi(isFiltered ? '🔧 Tooling (periode)' : '🔧 Tooling', fC(filtTooling))
       + kpi('💰 Fee totaal', fC(totalFee))
-      + kpi(rest >= 0 ? '✓ Restbudget' : '⚠ Overschrijding', fC(Math.abs(rest)), rest >= 0 ? 'pos' : 'neg')
+      + kpi(rest >= 0 ? '✓ Restbudget (jaar)' : '⚠ Overschrijding (jaar)', fC(Math.abs(rest)), rest >= 0 ? 'pos' : 'neg')
       + kpi('📋 Campagnes', String(numCamps))
       + kpi('✈️ Flights', String(numFlights))
       + kpi('🎯 Tactics', String(numTactics))
       + `</div>`;
 
     h += section('📊 Kanaalverdeling', donut(aggregateChannels(), FS.constants.CHANNELS));
-    h += section(`📈 Spend curve (per maand · ${s.year})`, stackedBars(aggregateMonthlySpend()));
+    h += section(`📈 Spend curve (per maand · ${s.year})`, stackedBars(spend));
     h += section('🔁 Always-On vs. losse campagnes', splitBar(aggregateSectionSplit()));
     h += section('📐 Budget vs. werkelijk (actuals)', actualsTable(collectActuals()));
 
@@ -321,8 +431,62 @@
 
     body.innerHTML = h;
 
+    wireFilterEvents();
+
     const pdfBtn = document.getElementById('insPDF');
     if (pdfBtn) pdfBtn.addEventListener('click', generatePDF);
+  }
+
+  function wireFilterEvents() {
+    const y = FS.state.year;
+    const fromEl = document.getElementById('insFrom');
+    const toEl = document.getElementById('insTo');
+    const onPeriodChange = () => {
+      if (fromEl && fromEl.value) filters.from = fromEl.value;
+      if (toEl && toEl.value) filters.to = toEl.value;
+      if (filters.from > filters.to) {
+        const tmp = filters.from;
+        filters.from = filters.to;
+        filters.to = tmp;
+      }
+      render();
+    };
+    if (fromEl) fromEl.addEventListener('change', onPeriodChange);
+    if (toEl) toEl.addEventListener('change', onPeriodChange);
+
+    const setRange = (from, to) => { filters.from = from; filters.to = to; render(); };
+    const reset = document.getElementById('insFiltReset');
+    if (reset) reset.addEventListener('click', () => setRange(`${y}-01-01`, `${y}-12-31`));
+    const q = (n) => {
+      const startMonth = (n - 1) * 3;
+      const from = `${y}-${String(startMonth + 1).padStart(2, '0')}-01`;
+      const endMonth = startMonth + 3;
+      const last = new Date(y, endMonth, 0).getDate();
+      const to = `${y}-${String(endMonth).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+      setRange(from, to);
+    };
+    ['insPq1', 'insPq2', 'insPq3', 'insPq4'].forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', () => q(i + 1));
+    });
+
+    const all = document.getElementById('insChanAll');
+    if (all) all.addEventListener('click', () => {
+      filters.channels = new Set(FS.constants.CHANNELS.map((c) => c.id));
+      render();
+    });
+    const none = document.getElementById('insChanNone');
+    if (none) none.addEventListener('click', () => {
+      filters.channels = new Set();
+      render();
+    });
+    document.querySelectorAll('#insBody input[data-ch]').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const id = cb.dataset.ch;
+        if (cb.checked) filters.channels.add(id); else filters.channels.delete(id);
+        render();
+      });
+    });
   }
 
   /* =====================  PDF RAPPORT  ===================== */
