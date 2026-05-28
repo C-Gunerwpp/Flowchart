@@ -528,7 +528,9 @@
         const v = parseFloat(el.value) || 0;
         t.ch[el.dataset.ch] = v;
         if (!v) delete t.ch[el.dataset.ch];
-        FS.modals.showTacticModal(ci, s.selectedFlight, s.selectedTactic);
+        // Tactic-budget is afgeleid van de som van de kanaalbudgetten.
+        t.b = FS.calc.channelSum(t.ch);
+        FS.modals.checkCampBudget(ci, () => FS.modals.showTacticModal(ci, s.selectedFlight, s.selectedTactic));
         return;
       }
       if (el.classList.contains('metv')) {
@@ -638,7 +640,7 @@
           if (wk >= 1 && wk <= 53) { t.ed = weekToDate(wk); if (t.ed < t.sd) t.ed = t.sd; if (t.ed > fl.ed) t.ed = fl.ed; re(); }
           return;
         }
-        if (el.id === 'mTb') { t.b = parseFloat(el.value) || 0; FS.modals.checkCampBudget(ci, re); return; }
+        // mTb is readonly — wordt automatisch berekend uit de kanaalbudgetten.
         if (el.id === 'mTact') { t.actual = parseFloat(el.value) || 0; if (!t.actual) delete t.actual; re(); return; }
         if (el.id === 'mTnt') { t.nt = el.value; FS.io.autoSave(); }
       }

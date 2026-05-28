@@ -324,6 +324,8 @@
     const camp = FS.state.campaigns[ci];
     const f = camp.segs[fi];
     const t = f.tac[ti];
+    // Budget is afgeleid van de kanalen — houd t.b altijd in sync.
+    t.b = FS.calc.channelSum(t.ch || {});
     FS.state.selectedCamp = camp.id;
     FS.state.selectedFlight = fi;
     FS.state.selectedTactic = ti;
@@ -352,8 +354,8 @@
       + `<div class="mf-field"><label>Eind / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mTed" type="date" value="${a(t.ed)}" min="${a(f.sd)}" max="${a(f.ed)}" style="width:130px">`
       + `<input id="mTew" type="number" value="${dateToWeek(t.ed)}" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
-      + `<div class="mf-field"><label>Budget<span class="lbl-help" title="Het tactic-budget is inclusief mediafee.">?</span></label>`
-      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mTb" type="number" value="${t.b}" step="100"></span></div></div>`;
+      + `<div class="mf-field"><label>Budget<span class="lbl-help" title="Automatisch berekend uit de som van de kanaalbudgetten (incl. mediafee).">?</span></label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mTb" type="number" value="${FS.calc.channelSum(t.ch || {})}" step="100" disabled style="background:#F1F5F9;color:#475569;cursor:not-allowed" title="Automatisch berekend uit kanalen"></span></div></div>`;
 
     const act = t.actual || 0;
     const dAct = act - t.b;
@@ -373,7 +375,6 @@
     h += `<div class="mf-actions"><button class="mbtn del" id="mTdel">🗑 Verwijder</button></div></div>`;
 
     const channelTotal = FS.calc.channelSum(t.ch || {});
-    const diff = t.b - channelTotal;
     const fee = FS.calc.tacticFee(t);
     h += `<div class="m-section"><h4>📊 Kanaalverdeling + Metrics</h4></div><div class="ch-grid">`;
     FS.constants.CHANNELS.forEach((ch) => {
@@ -403,12 +404,8 @@
       }
       h += `</div>`;
     });
-    h += `</div><div class="ch-comp"><span>Kanalen: <strong>${esc(fC(channelTotal))}</strong> / Budget: <strong>${esc(fC(t.b))}</strong></span>`
-      + `<span class="${diff === 0 ? 'ch-ok' : 'ch-warn'}">`
-      + (diff === 0 ? '✓ Volledig'
-        : diff > 0 ? `⚠ ${esc(fC(diff))} over`
-        : `⚠ ${esc(fC(Math.abs(diff)))} te veel`)
-      + `</span></div>`;
+    h += `</div><div class="ch-comp"><span>Kanalen totaal: <strong>${esc(fC(channelTotal))}</strong></span>`
+      + `<span class="ch-ok">✓ Tactic-budget volgt kanalen</span></div>`;
     if (fee > 0.005) {
       h += `<div style="margin-top:6px;font-size:9px;color:#8B5CF6;font-weight:600">💰 Fee: ${esc(fC2(fee))} · Netto: ${esc(fC2(channelTotal - fee))}</div>`;
     }
