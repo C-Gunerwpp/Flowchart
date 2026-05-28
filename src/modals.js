@@ -162,6 +162,13 @@
       + `</select></div></div>`;
     h += `<div class="mf-row"><div class="mf-field"><label>Budget<span class="lbl-help" title="Laat op 0 staan om automatisch het totaal van de flights te gebruiken.">?</span></label>`
       + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mCbudget" type="number" value="${camp.budget || 0}" step="1000"></span></div>`
+      + `<div class="mf-field"><label>Funnelfase<span class="lbl-help" title="In welke fase van de funnel speelt deze campagne zich af?">?</span></label>`
+      + `<select id="mCfunnel">`
+      + `<option value=""${!camp.funnel ? ' selected' : ''}>— geen —</option>`
+      + FS.constants.FUNNEL_STAGES.map((st) =>
+        `<option value="${a(st.id)}"${camp.funnel === st.id ? ' selected' : ''}>${a(st.icon)} ${a(st.name)}</option>`,
+      ).join('')
+      + `</select></div>`
       + `<div class="mf-field"><label>Kleur</label>${palHTML(camp.col)}</div></div>`;
     h += `<div class="mf-actions">`
       + `<button class="mbtn" id="mCup">▲</button>`

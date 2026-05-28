@@ -178,6 +178,22 @@
     let ttTimer = null;
     const gantt = document.getElementById('gantt');
 
+    /* Legenda: funnel-filter pillen */
+    const legendEl = document.getElementById('legend');
+    if (legendEl) {
+      legendEl.addEventListener('click', (e) => {
+        const pill = e.target.closest('.g-funnel-pill');
+        if (!pill) return;
+        const fs = pill.dataset.fs;
+        if (fs === '__all') {
+          FS.render.setFunnelAll(true);
+          return;
+        }
+        const on = FS.render.isFunnelVisible(fs);
+        FS.render.setFunnelStage(fs, !on);
+      });
+    }
+
     gantt.addEventListener('click', (e) => {
       const t = e.target;
       const addFlt = t.closest('.g-addf');
@@ -541,6 +557,12 @@
       if (el.id === 'mCbudget') {
         s.campaigns[ci].budget = parseFloat(el.value) || 0;
         FS.modals.checkCampBudget(ci, () => FS.modals.showCampModal(ci));
+        return;
+      }
+      if (el.id === 'mCfunnel') {
+        s.campaigns[ci].funnel = el.value;
+        FS.io.autoSave();
+        FS.render.render();
         return;
       }
 

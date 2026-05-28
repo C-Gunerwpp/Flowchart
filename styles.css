@@ -70,11 +70,22 @@ body{font-family:'Inter',sans-serif;background:#0a0e2a;color:#fff;min-height:100
 .ins-filt-dash{color:#6B7280;font-size:11px}
 .ins-filters input[type=date]{font-family:inherit;font-size:11px;padding:4px 6px;border:1px solid #D1D5DB;border-radius:4px;background:#fff}
 .ins-filters .mbtn.mini{padding:3px 8px;font-size:10px}
-.ins-chans{display:flex;flex-wrap:wrap;gap:4px 10px;flex:1;min-width:0}
-.ins-chan{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#1E293B;background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:2px 8px;cursor:pointer;user-select:none}
+.ins-chans{display:flex;flex-wrap:wrap;gap:4px 6px;flex:1;min-width:0}
+.ins-chan{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#1E293B;background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:2px 8px;cursor:pointer;user-select:none;transition:all .12s}
 .ins-chan:hover{border-color:#0026C5}
-.ins-chan input{accent-color:#0026C5;cursor:pointer}
+.ins-chan input{accent-color:#0026C5;cursor:pointer;margin:0}
+.ins-chan.off{opacity:.45;background:#F3F4F6}
 .ins-filt-note{font-size:10px;color:#92400E;background:#FEF3C7;border-left:3px solid #F59E0B;padding:5px 8px;border-radius:4px}
+.ins-filt-details{margin:0}
+.ins-filt-details summary{cursor:pointer;font-size:11px;font-weight:700;color:#000050;padding:4px 8px;border-radius:4px;background:#fff;border:1px solid #E5E7EB;list-style:none;display:inline-flex;align-items:center;gap:6px;user-select:none}
+.ins-filt-details summary::-webkit-details-marker{display:none}
+.ins-filt-details summary::before{content:'▸';font-size:9px;color:#6B7280;transition:transform .15s}
+.ins-filt-details[open] summary::before{transform:rotate(90deg)}
+.ins-filt-details summary:hover{border-color:#0026C5}
+.ins-filt-details .ins-filt-detail-body{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.ins-funnels{display:flex;flex-wrap:wrap;gap:4px 6px}
+.ins-funnel{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#1E293B;background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:3px 9px;cursor:pointer;user-select:none;font-weight:600}
+.ins-funnel.off{opacity:.4;background:#F3F4F6}
 .ins-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
 .ins-kpi{background:#F8F9FC;border:1px solid #E5E7EB;border-left:3px solid #0026C5;border-radius:8px;padding:10px 12px}
 .ins-kpi-l{font-size:8px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:.3px}
@@ -372,6 +383,13 @@ body{font-family:'Inter',sans-serif;background:#0a0e2a;color:#fff;min-height:100
 .g-row .g-need-act{display:inline-block;margin-left:6px;color:#F59E0B;font-weight:900;font-size:12px;animation:fsPulse 1.6s ease-in-out infinite}
 @keyframes fsPulse{0%,100%{opacity:1}50%{opacity:.45}}
 .g-row.g-camp .g-need-act{color:#D97706;font-size:13px}
+
+/* Funnelfase badge + filter pills */
+.g-funnel-bd{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;margin-left:6px;font-size:9px;line-height:1;color:#fff;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.08);flex-shrink:0}
+.leg-lbl{font-weight:700;font-size:7px;color:#000050;letter-spacing:.3px}
+.g-funnel-pill{display:inline-flex;align-items:center;gap:3px;font-size:9px;font-weight:600;padding:3px 9px;border-radius:14px;border:1px solid #D1D5DB;background:#fff;color:#475569;cursor:pointer;font-family:inherit;line-height:1;transition:all .12s}
+.g-funnel-pill:hover{border-color:#0026C5;color:#0026C5}
+.g-funnel-pill.on{background:#0026C5;color:#fff;border-color:#0026C5}
 
 /* Waarschuwingsicoon in de flight-bar zelf */
 .g-bar .g-bar-warn{position:absolute;top:50%;right:4px;transform:translateY(-50%);width:14px;height:14px;background:#F59E0B;color:#fff;border-radius:50%;font-weight:900;font-size:10px;border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;animation:fsPulse 1.6s ease-in-out infinite;pointer-events:none;z-index:3;font-family:'Segoe UI',Arial,sans-serif;padding-bottom:1px;box-sizing:border-box}

@@ -11,7 +11,7 @@
 
   let isOpen = false;
 
-  // Filters (periode + kanalen). Worden bij eerste open of jaarwissel gereset.
+  // Filters (periode + kanalen + funnel). Worden bij eerste open of jaarwissel gereset.
   let filters = null;
   let filtersYear = null;
   function ensureFilters() {
@@ -21,8 +21,13 @@
       from: `${y}-01-01`,
       to: `${y}-12-31`,
       channels: new Set(FS.constants.CHANNELS.map((c) => c.id)),
+      funnel: new Set([...FS.constants.FUNNEL_STAGES.map((s) => s.id), '']),
     };
     filtersYear = y;
+  }
+
+  function campMatchesFunnel(c) {
+    return filters.funnel.has(c.funnel || '');
   }
 
   /* ----- Periode-helpers ----- */
@@ -78,7 +83,8 @@
   function aggregateChannels() {
     ensureFilters();
     const totals = {};
-    FS.state.campaigns.forEach((c) =>
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
       c.segs.forEach((f) =>
         (f.tac || []).forEach((t) => {
           const w = periodWeight(t.sd, t.ed);
@@ -88,8 +94,8 @@
             totals[k] = (totals[k] || 0) + (t.ch[k] || 0) * w;
           }
         }),
-      ),
-    );
+      );
+    });
     return totals;
   }
 
@@ -120,6 +126,7 @@
     const creatie = new Array(12).fill(0);
     const tooling = new Array(12).fill(0);
     FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
       c.segs.forEach((f) => {
         const rf = clampedPeriod(f.sd, f.ed);
         if (f.tac && f.tac.length) {
@@ -144,6 +151,7 @@
     let ao = 0;
     let losse = 0;
     FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
       let total = 0;
       c.segs.forEach((f) => {
         const w = periodWeight(f.sd, f.ed);
@@ -157,7 +165,8 @@
   function collectActuals() {
     ensureFilters();
     const rows = [];
-    FS.state.campaigns.forEach((c) =>
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
       c.segs.forEach((f) =>
         (f.tac || []).forEach((t) => {
           if (!(t.actual && t.actual > 0)) return;
@@ -172,8 +181,8 @@
             variance: (t.actual - (t.b || 0)) * w,
           });
         }),
-      ),
-    );
+      );
+    });
     return rows;
   }
 
@@ -370,40 +379,60 @@
 
     const totalChan = FS.constants.CHANNELS.length;
     const activeChan = filters.channels.size;
+    const totalFn = FS.constants.FUNNEL_STAGES.length + 1; // +1 voor "geen"
+    const activeFn = filters.funnel.size;
     const isFiltered = filters.from !== `${s.year}-01-01`
       || filters.to !== `${s.year}-12-31`
-      || activeChan !== totalChan;
+      || activeChan !== totalChan
+      || activeFn !== totalFn;
 
-    // Filterpaneel
+    // Channel-chips (in collapsible details)
     const chanBoxes = FS.constants.CHANNELS.map((ch) => {
-      const checked = filters.channels.has(ch.id) ? ' checked' : '';
-      return `<label class="ins-chan"><input type="checkbox" data-ch="${esc(ch.id)}"${checked}> ${esc(ch.icon)} ${esc(ch.name)}</label>`;
+      const checked = filters.channels.has(ch.id);
+      return `<label class="ins-chan${checked ? '' : ' off'}"><input type="checkbox" data-ch="${esc(ch.id)}"${checked ? ' checked' : ''}> ${esc(ch.icon)} ${esc(ch.name)}</label>`;
     }).join('');
+
+    // Funnel-chips
+    const funnelBoxes = FS.constants.FUNNEL_STAGES.map((st) => {
+      const on = filters.funnel.has(st.id);
+      const bg = on ? `background:${esc(st.color)};color:#fff;border-color:${esc(st.color)};` : '';
+      return `<label class="ins-funnel${on ? '' : ' off'}" style="${bg}"><input type="checkbox" data-fn="${esc(st.id)}"${on ? ' checked' : ''} style="display:none"> ${esc(st.icon)} ${esc(st.name)}</label>`;
+    }).join('');
+    const noneOn = filters.funnel.has('');
+    const funnelNone = `<label class="ins-funnel${noneOn ? '' : ' off'}"><input type="checkbox" data-fn=""${noneOn ? ' checked' : ''} style="display:none"> — geen —</label>`;
 
     let h = `<div class="ins-filters">`
       + `<div class="ins-filt-row">`
-      + `<div class="ins-filt-grp">`
       + `<div class="ins-filt-l">📅 Periode</div>`
       + `<input type="date" id="insFrom" value="${esc(filters.from)}">`
       + `<span class="ins-filt-dash">t/m</span>`
       + `<input type="date" id="insTo" value="${esc(filters.to)}">`
-      + `<button class="mbtn" id="insFiltReset" title="Hele jaar">↺ Jaar</button>`
-      + `</div>`
-      + `<div class="ins-filt-grp">`
-      + `<button class="mbtn" id="insPq1">Q1</button>`
-      + `<button class="mbtn" id="insPq2">Q2</button>`
-      + `<button class="mbtn" id="insPq3">Q3</button>`
-      + `<button class="mbtn" id="insPq4">Q4</button>`
+      + `<div class="ins-filt-grp" style="margin-left:auto">`
+      + `<button class="mbtn mini" id="insPq1">Q1</button>`
+      + `<button class="mbtn mini" id="insPq2">Q2</button>`
+      + `<button class="mbtn mini" id="insPq3">Q3</button>`
+      + `<button class="mbtn mini" id="insPq4">Q4</button>`
+      + `<button class="mbtn mini" id="insFiltReset" title="Hele jaar">↺ Jaar</button>`
       + `</div>`
       + `</div>`
       + `<div class="ins-filt-row">`
-      + `<div class="ins-filt-l">📊 Kanalen <span class="ins-filt-mini">(${activeChan}/${totalChan})</span></div>`
+      + `<div class="ins-filt-l">🪜 Funnel <span class="ins-filt-mini">(${activeFn}/${totalFn})</span></div>`
+      + `<div class="ins-funnels">${funnelBoxes}${funnelNone}</div>`
+      + `<div class="ins-filt-grp" style="margin-left:auto">`
+      + `<button class="mbtn mini" id="insFnAll">Alle</button>`
+      + `<button class="mbtn mini" id="insFnNone">Geen</button>`
+      + `</div>`
+      + `</div>`
+      + `<details class="ins-filt-details"${activeChan !== totalChan ? ' open' : ''}>`
+      + `<summary>📊 Kanalen (${activeChan}/${totalChan})</summary>`
+      + `<div class="ins-filt-detail-body">`
+      + `<div class="ins-chans">${chanBoxes}</div>`
+      + `<div class="ins-filt-grp">`
       + `<button class="mbtn mini" id="insChanAll">Alle</button>`
       + `<button class="mbtn mini" id="insChanNone">Geen</button>`
-      + `<div class="ins-chans">${chanBoxes}</div>`
-      + `</div>`
+      + `</div></div></details>`
       + (isFiltered
-        ? `<div class="ins-filt-note">⚠ Gefilterde weergave — bedragen in grafieken zijn naar rato van de geselecteerde periode/kanalen.</div>`
+        ? `<div class="ins-filt-note">⚠ Gefilterde weergave — bedragen zijn naar rato van geselecteerde periode/kanalen/funnel.</div>`
         : '')
       + `</div>`;
 
@@ -484,6 +513,27 @@
       cb.addEventListener('change', () => {
         const id = cb.dataset.ch;
         if (cb.checked) filters.channels.add(id); else filters.channels.delete(id);
+        render();
+      });
+    });
+
+    const fnAll = document.getElementById('insFnAll');
+    if (fnAll) fnAll.addEventListener('click', () => {
+      filters.funnel = new Set([...FS.constants.FUNNEL_STAGES.map((s) => s.id), '']);
+      render();
+    });
+    const fnNone = document.getElementById('insFnNone');
+    if (fnNone) fnNone.addEventListener('click', () => {
+      filters.funnel = new Set();
+      render();
+    });
+    document.querySelectorAll('#insBody .ins-funnel').forEach((lbl) => {
+      lbl.addEventListener('click', (e) => {
+        e.preventDefault();
+        const cb = lbl.querySelector('input[data-fn]');
+        if (!cb) return;
+        const id = cb.dataset.fn;
+        if (filters.funnel.has(id)) filters.funnel.delete(id); else filters.funnel.add(id);
         render();
       });
     });

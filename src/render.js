@@ -10,6 +10,31 @@
 
   const MONTH_LABELS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 
+  // Funnel-filter voor het Gantt-overzicht. null = alles tonen; anders Set met
+  // actieve fase-id's (incl. '' voor "geen fase ingevuld").
+  let funnelFilter = null;
+  function isFunnelVisible(stageId) {
+    if (!funnelFilter) return true;
+    return funnelFilter.has(stageId || '');
+  }
+  function setFunnelStage(stageId, on) {
+    if (!funnelFilter) {
+      funnelFilter = new Set([...FS.constants.FUNNEL_STAGES.map((s) => s.id), '']);
+    }
+    if (on) funnelFilter.add(stageId); else funnelFilter.delete(stageId);
+    // Als alles weer aan staat: terug naar null (= ongekleurde "alle" status)
+    const allIds = [...FS.constants.FUNNEL_STAGES.map((s) => s.id), ''];
+    if (allIds.every((id) => funnelFilter.has(id))) funnelFilter = null;
+    render();
+  }
+  function setFunnelAll(on) {
+    funnelFilter = on ? null : new Set();
+    render();
+  }
+  function funnelStageInfo(stageId) {
+    return FS.constants.FUNNEL_STAGES.find((s) => s.id === stageId);
+  }
+
   /** Eén bar in het Gantt-grid. */
   function barHTML(startWeek, endWeek, color, textColor, name, budget, status, dataAttrs, flags) {
     const f = flags || {};
@@ -95,11 +120,16 @@
     }
     const selected = camp.id === FS.state.selectedCamp;
     const lockIc = camp.locked ? `<span style="margin-left:4px;font-size:10px" title="Vergrendeld">🔒</span>` : '';
+    const fst = funnelStageInfo(camp.funnel);
+    const fnBadge = fst
+      ? `<span class="g-funnel-bd" style="background:${a(fst.color)}" title="${a(fst.name)}">${a(fst.icon)}</span>`
+      : '';
     return `<div class="g-row g-camp${isExp ? ' g-exp' : ''}${selected ? ' g-sel' : ''}" data-ci="${a(camp.id)}">`
       + `<div class="g-label">`
       + `<span class="g-toggle" data-ci="${a(camp.id)}">${isExp ? '▼' : '▶'}</span>`
       + `<span class="g-dot" style="background:${a(camp.col)}"></span>`
       + `<span class="g-name">${esc(camp.label)}</span>`
+      + fnBadge
       + lockIc
       + `<span class="g-count">${camp.segs.length}</span>`
       + (camp.locked ? '' : `<button class="g-addf" data-ci="${a(camp.id)}" title="Flight toevoegen">+</button>`)
@@ -186,9 +216,13 @@
       // Groepeer altijd: eerst losse campagnes, daarna Always-On. Zo voorkomen
       // we dat een willekeurig gesorteerd JSON-bestand meerdere sectiekoppen
       // produceert tussen de campagnes door.
-      const losseList = camps.filter((c) => (c.sec || 'losse') !== 'ao');
-      const aoList = camps.filter((c) => c.sec === 'ao');
+      const visible = camps.filter((c) => isFunnelVisible(c.funnel || ''));
+      const losseList = visible.filter((c) => (c.sec || 'losse') !== 'ao');
+      const aoList = visible.filter((c) => c.sec === 'ao');
       const ordered = losseList.concat(aoList);
+      if (!ordered.length) {
+        html += `<div class="g-empty" style="padding:24px"><div class="g-empty-sub">Geen campagnes voldoen aan het funnel-filter. Pas het filter aan via de legenda onderaan.</div></div>`;
+      }
       let lastSec = '';
       ordered.forEach((c) => {
         const secKey = c.sec === 'ao' ? 'ao' : 'losse';
@@ -258,11 +292,22 @@
   }
 
   function renderLegend() {
-    let html = `<span style="font-weight:700;font-size:7px;color:#000050">CAMPAGNES:</span>`;
+    // Funnel-filter pillen
+    let html = `<span class="leg-lbl">🪜 FUNNEL:</span>`;
+    const all = !funnelFilter;
+    html += `<button class="g-funnel-pill${all ? ' on' : ''}" data-fs="__all" title="Alle fases tonen">Alle</button>`;
+    FS.constants.FUNNEL_STAGES.forEach((st) => {
+      const on = isFunnelVisible(st.id);
+      html += `<button class="g-funnel-pill${on ? ' on' : ''}" data-fs="${a(st.id)}" style="${on ? `background:${a(st.color)};color:#fff;border-color:${a(st.color)}` : ''}" title="${a(st.name)}">${a(st.icon)} ${esc(st.name)}</button>`;
+    });
+    const noneOn = isFunnelVisible('');
+    html += `<button class="g-funnel-pill${noneOn ? ' on' : ''}" data-fs="" title="Campagnes zonder funnelfase">— Geen —</button>`;
+
+    html += `<span class="leg-lbl" style="margin-left:14px">CAMPAGNES:</span>`;
     FS.state.campaigns.forEach((c) => {
       html += `<div class="leg-item"><div class="leg-dot" style="background:${a(c.col)}"></div>${esc(c.label)}</div>`;
     });
-    html += `<span style="margin-left:14px;font-weight:700;font-size:7px;color:#000050">STATUS:</span>`;
+    html += `<span class="leg-lbl" style="margin-left:14px">STATUS:</span>`;
     FS.constants.STATUSES.forEach((s) => {
       html += `<div class="leg-item"><div class="leg-st" style="background:${a(s.color || '#0026C5')}">`
         + `<div class="lst" style="background:${a(s.color || 'transparent')}"></div></div>${esc(s.name)}</div>`;
@@ -300,5 +345,6 @@
       + '</div>';
   }
 
-  FS.render = { render, renderGantt, renderSummary, renderLegend, barHTML, palHTML, positionNowLine };
+  FS.render = { render, renderGantt, renderSummary, renderLegend, barHTML, palHTML, positionNowLine,
+    setFunnelStage, setFunnelAll, isFunnelVisible, funnelStageInfo };
 })(window.FS = window.FS || {});

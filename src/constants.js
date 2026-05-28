@@ -46,6 +46,13 @@
       { id: 'afgerond', name: 'Afgerond', color: '#94A3B8' },
     ],
 
+    FUNNEL_STAGES: [
+      { id: 'awareness', name: 'Awareness', color: '#3B82F6', icon: '👁' },
+      { id: 'interest', name: 'Interest', color: '#0D9488', icon: '💡' },
+      { id: 'consideration', name: 'Consideration', color: '#F59E0B', icon: '🔍' },
+      { id: 'action', name: 'Action', color: '#DC2626', icon: '🛒' },
+    ],
+
     /* Kleurgroepen — WPP Media + de vier agentschappen + accenten/neutraal.
        Elke groep heeft meerdere shades (donker → licht) zodat er onderscheid
        blijft binnen één bureau-kleur. */
