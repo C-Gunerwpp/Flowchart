@@ -155,6 +155,42 @@
     document.getElementById('zoomVal').addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.zoomReset());
     const btnToday = document.getElementById('btnToday');
     if (btnToday) btnToday.addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.scrollToNow());
+
+    /* ----- Gantt viewport (pan + maand-aantal) ----- */
+    const updateRangeUI = () => {
+      const lbl = document.getElementById('ganttRangeLbl');
+      const inp = document.getElementById('monthCountIn');
+      if (lbl && FS.viewport) lbl.textContent = FS.viewport.rangeLabel();
+      if (inp && FS.viewport) inp.value = FS.viewport.get().monthCount;
+    };
+    const panAndRender = (delta) => {
+      if (!FS.viewport) return;
+      FS.viewport.panMonths(delta);
+      FS.render.render();
+      updateRangeUI();
+    };
+    const btnPrev = document.getElementById('btnPanPrev');
+    if (btnPrev) btnPrev.addEventListener('click', () => panAndRender(-1));
+    const btnNext = document.getElementById('btnPanNext');
+    if (btnNext) btnNext.addEventListener('click', () => panAndRender(1));
+    const monthIn = document.getElementById('monthCountIn');
+    if (monthIn) monthIn.addEventListener('change', function () {
+      if (!FS.viewport) return;
+      FS.viewport.setMonthCount(this.value);
+      this.value = FS.viewport.get().monthCount;
+      FS.render.render();
+      updateRangeUI();
+    });
+    const rangeLbl = document.getElementById('ganttRangeLbl');
+    if (rangeLbl) rangeLbl.addEventListener('click', () => {
+      if (!FS.viewport) return;
+      FS.viewport.scrollToToday();
+      FS.render.render();
+      updateRangeUI();
+    });
+    // Update label na elke render
+    FS._refreshRangeUI = updateRangeUI;
+    updateRangeUI();
     document.getElementById('insClose').addEventListener('click', () => FS.insights && FS.insights.close());
     document.getElementById('insBg').addEventListener('click', function (e) {
       if (e.target === this) FS.insights && FS.insights.close();
@@ -162,7 +198,9 @@
 
     document.getElementById('yearIn').addEventListener('change', function () {
       FS.state.year = parseInt(this.value, 10) || C.DEFAULT_YEAR;
+      if (FS.viewport) FS.viewport.resetToYear(FS.state.year);
       FS.render.render();
+      if (FS._refreshRangeUI) FS._refreshRangeUI();
     });
     document.getElementById('clientIn').addEventListener('input', function () {
       FS.state.client = this.value;

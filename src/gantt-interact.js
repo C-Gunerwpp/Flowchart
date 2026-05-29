@@ -69,7 +69,8 @@
 
     const barsContainer = bar.closest('.g-bars');
     if (!barsContainer) return;
-    const colWidth = barsContainer.getBoundingClientRect().width / 52;
+    const cols = (FS.viewport && FS.viewport.cols()) || 52;
+    const colWidth = barsContainer.getBoundingClientRect().width / cols;
     if (colWidth <= 0) return;
 
     const target = ti !== null
@@ -105,10 +106,11 @@
       drag.barEl.style.opacity = '0.75';
     } else {
       // resize: pas de grid-column kolommen live aan voor feedback
+      const cols = (FS.viewport && FS.viewport.cols()) || 52;
       const sw = origWeek(drag.origSd) + (drag.mode === 'resizeStart' ? dWeeks : 0);
       const ew = origWeek(drag.origEd) + (drag.mode === 'resizeEnd' ? dWeeks : 0);
-      const a = Math.max(1, Math.min(53, sw));
-      const b = Math.max(a, Math.min(53, ew));
+      const a = Math.max(1, Math.min(cols + 1, sw));
+      const b = Math.max(a, Math.min(cols + 1, ew));
       drag.barEl.style.gridColumn = `${a}/${b + 1}`;
       drag.barEl.style.opacity = '0.85';
     }
@@ -272,12 +274,10 @@
     if (!drag) return '';
     const sd = drag.mode === 'resizeEnd' ? drag.origSd : applyWeeksOffset(drag.origSd, dWeeks);
     const ed = drag.mode === 'resizeStart' ? drag.origEd : applyWeeksOffset(drag.origEd, dWeeks);
-    const sw = FS.utils.dateToWeek(sd);
-    const ew = FS.utils.dateToWeek(ed);
     const label = drag.mode === 'move' ? `Verplaats ${dWeeks > 0 ? '+' : ''}${dWeeks}w`
       : drag.mode === 'resizeStart' ? `Start ${dWeeks > 0 ? '+' : ''}${dWeeks}w`
       : `Eind ${dWeeks > 0 ? '+' : ''}${dWeeks}w`;
-    return `${label} → W${sw}–W${ew}`;
+    return `${label} → ${sd} t/m ${ed}`;
   }
 
   function applyWeeksOffset(dateStr, weeks) {
@@ -287,7 +287,9 @@
   }
 
   function origWeek(dateStr) {
-    return FS.utils.dateToWeek(dateStr);
+    // Kolomindex (1-based) van de week binnen de huidige viewport.
+    const idx = FS.viewport && FS.viewport.weekIndex ? FS.viewport.weekIndex(dateStr) : -1;
+    return idx >= 0 ? idx + 1 : 1;
   }
 
   /* ========= ZOOM ========= */
@@ -319,18 +321,27 @@
     const wrap = document.getElementById('ganttWrap');
     const gantt = document.getElementById('gantt');
     if (!wrap || !gantt) return;
-    const nw = FS.utils.getCurrentWeek && FS.utils.getCurrentWeek();
-    if (!nw) {
-      if (FS.toast) FS.toast.show('Vandaag valt buiten het actieve jaar', 'info');
-      return;
+    let nowFrac = FS.viewport && FS.viewport.nowCol ? FS.viewport.nowCol() : null;
+    if (nowFrac == null) {
+      // Vandaag valt buiten de viewport → herschuif de viewport eerst.
+      if (FS.viewport && FS.viewport.scrollToToday) {
+        FS.viewport.scrollToToday();
+        if (FS.render) FS.render.render();
+        nowFrac = FS.viewport.nowCol();
+      }
+      if (nowFrac == null) {
+        if (FS.toast) FS.toast.show('Vandaag valt buiten de zichtbare periode', 'info');
+        return;
+      }
     }
     const weeksEl = gantt.querySelector('.g-head-w .gh-weeks');
     if (!weeksEl) return;
+    const cols = FS.viewport.cols();
     const weeksRect = weeksEl.getBoundingClientRect();
     const ganttRect = gantt.getBoundingClientRect();
     const offsetLeft = weeksRect.left - ganttRect.left;
-    const colWidth = weeksRect.width / 52;
-    const nwLeft = offsetLeft + (nw - 0.5) * colWidth;
+    const colWidth = weeksRect.width / cols;
+    const nwLeft = offsetLeft + nowFrac * colWidth;
     const target = Math.max(0, nwLeft - wrap.clientWidth / 2);
     wrap.scrollTo({ left: target, behavior: 'smooth' });
   }

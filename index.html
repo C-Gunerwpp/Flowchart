@@ -27,6 +27,13 @@
       <button class="user-pill" id="userPill" title="Klik om je naam in te stellen of te wijzigen — deze naam wordt vastgelegd in elk plan dat je opslaat">✏️ Naam instellen</button>
       <button class="tb-btn" id="btnUndo" title="Ongedaan maken (Ctrl+Z)" disabled>&#8630;</button>
       <button class="tb-btn" id="btnRedo" title="Opnieuw (Ctrl+Y)" disabled>&#8631;</button>
+      <span class="tb-range" id="ganttRange" title="Zichtbare periode in de Gantt">
+        <button class="tb-btn" id="btnPanPrev" title="Eén maand terug">&#9664;</button>
+        <span class="tb-range-lbl" id="ganttRangeLbl" title="Klik om naar vandaag te springen">–</span>
+        <button class="tb-btn" id="btnPanNext" title="Eén maand vooruit">&#9654;</button>
+        <input class="tb-in" id="monthCountIn" type="number" min="3" max="24" step="1" value="12" title="Aantal zichtbare maanden (3–24)" style="width:54px">
+        <span class="tb-range-suf">mnd</span>
+      </span>
       <button class="tb-btn" id="btnZoomOut" title="Zoom uit">&#128269;&#8722;</button>
       <span class="tb-zv" id="zoomVal" title="Zoom (klik om te resetten)">100%</span>
       <button class="tb-btn" id="btnZoomIn" title="Zoom in">&#128269;&#43;</button>
@@ -56,19 +63,20 @@
 <div class="modal-bg" id="cfmBg"><div class="cfm-box"><div class="cfm-icon" id="cfmIcon"></div><div class="cfm-msg" id="cfmMsg"></div><div class="cfm-btns"><button class="mbtn" id="cfmNo">Annuleer</button><button class="mbtn pri" id="cfmYes">Akkoord</button></div></div></div>
 <div class="modal-bg" id="insBg"><div class="modal ins-modal"><div class="modal-head"><div class="modal-nav"><strong>&#128202; Inzichten &amp; rapportage</strong></div><button class="modal-close" id="insClose">&#10005;</button></div><div class="modal-body" id="insBody"></div></div></div>
 <div class="toast-wrap" id="toastWrap"></div>
-<script src="src/constants.js?v=17" defer></script>
-<script src="src/state.js?v=17" defer></script>
-<script src="src/utils.js?v=17" defer></script>
-<script src="src/toast.js?v=17" defer></script>
-<script src="src/calc.js?v=17" defer></script>
-<script src="src/render.js?v=17" defer></script>
-<script src="src/modals.js?v=17" defer></script>
-<script src="src/insights.js?v=17" defer></script>
-<script src="src/history.js?v=17" defer></script>
-<script src="src/gantt-interact.js?v=17" defer></script>
-<script src="src/collab.js?v=17" defer></script>
-<script src="src/locks.js?v=17" defer></script>
-<script src="src/io.js?v=17" defer></script>
-<script src="src/events.js?v=17" defer></script>
+<script src="src/constants.js?v=18" defer></script>
+<script src="src/state.js?v=18" defer></script>
+<script src="src/utils.js?v=18" defer></script>
+<script src="src/viewport.js?v=18" defer></script>
+<script src="src/toast.js?v=18" defer></script>
+<script src="src/calc.js?v=18" defer></script>
+<script src="src/render.js?v=18" defer></script>
+<script src="src/modals.js?v=18" defer></script>
+<script src="src/insights.js?v=18" defer></script>
+<script src="src/history.js?v=18" defer></script>
+<script src="src/gantt-interact.js?v=18" defer></script>
+<script src="src/collab.js?v=18" defer></script>
+<script src="src/locks.js?v=18" defer></script>
+<script src="src/io.js?v=18" defer></script>
+<script src="src/events.js?v=18" defer></script>
 </body>
 </html>

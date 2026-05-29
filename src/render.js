@@ -36,7 +36,9 @@
   }
 
   /** Eén bar in het Gantt-grid. */
-  function barHTML(startWeek, endWeek, color, textColor, name, budget, status, dataAttrs, flags) {
+  function barHTML(sd, ed, color, textColor, name, budget, status, dataAttrs, flags) {
+    const rng = FS.viewport.dateColRange(sd, ed);
+    if (!rng.visible) return '';
     const f = flags || {};
     let col = color;
     let tc = textColor;
@@ -47,10 +49,11 @@
       extraCls = ' g-bar-actual';
     }
     const stc = statusColor(status);
+    const span = rng.eCol - rng.sCol;
     return (
-      `<div class="g-bar${extraCls}" style="grid-column:${startWeek}/${endWeek + 1};background:${a(col)};color:${a(tc)}"${dataAttrs}>`
-      + (name ? `<span class="bn">${esc(name)}</span>` : '')
-      + (budget ? `<span class="bb">${esc(fK(budget))}</span>` : '')
+      `<div class="g-bar${extraCls}" style="grid-column:${rng.sCol}/${rng.eCol};background:${a(col)};color:${a(tc)}"${dataAttrs}>`
+      + (name && span >= 3 ? `<span class="bn">${esc(name)}</span>` : '')
+      + (budget && span >= 4 ? `<span class="bb">${esc(fK(budget))}</span>` : '')
       + (stc ? `<div class="g-st" style="background:${a(stc)}"></div>` : '')
       + (f.needAct ? `<span class="g-bar-warn" title="Wacht op actualisatie">!</span>` : '')
       + '</div>'
@@ -58,47 +61,57 @@
   }
 
   function renderHeader() {
-    const year = FS.state.year;
-    const nowWeek = getCurrentWeek();
-    let q = `<div class="g-head-q"><div class="gh-label">Campagne</div><div class="gh-budget"></div><div class="gh-weeks">`
-      + `<div class="gh-q" style="grid-column:1/14">Q1 ${esc(year)}</div>`
-      + `<div class="gh-q gh-qd" style="grid-column:14/27">Q2</div>`
-      + `<div class="gh-q gh-qd" style="grid-column:27/40">Q3</div>`
-      + `<div class="gh-q gh-qd" style="grid-column:40/53">Q4</div></div></div>`;
+    const vp = FS.viewport;
+    const cols = vp.cols();
+    const weeks = vp.weeks();
+    const months = vp.months();
+    const quarters = vp.quarters();
+    // ISO-week+jaar van vandaag, los van FS.state.year (viewport kan cross-year zijn)
+    const today = new Date();
+    const _t = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+    const _dow = _t.getUTCDay() || 7;
+    _t.setUTCDate(_t.getUTCDate() + 4 - _dow);
+    const todayIsoY = _t.getUTCFullYear();
+    const _ys = new Date(Date.UTC(todayIsoY, 0, 1));
+    const todayIsoW = Math.ceil((((_t - _ys) / 86400000) + 1) / 7);
 
-    // Maandband: groepeer weken per maand
+    // Kwartaalband
+    let q = `<div class=\"g-head-q\"><div class=\"gh-label\">Campagne</div><div class=\"gh-budget\"></div><div class=\"gh-weeks\">`;
+    quarters.forEach((qq, qi) => {
+      const cls = qi === 0 ? 'gh-q' : 'gh-q gh-qd';
+      q += `<div class=\"${cls}\" style=\"grid-column:${qq.colStart}/${qq.colEnd}\">${esc(qq.label)}</div>`;
+    });
+    q += `</div></div>`;
+
+    // Maandband
     let m = `<div class="g-head-m"><div class="gh-label"></div><div class="gh-budget"></div><div class="gh-weeks">`;
-    let mStart = 1;
-    let curMonth = weekToMonth(1);
-    for (let i = 2; i <= 53; i++) {
-      const nextMonth = i <= 52 ? weekToMonth(i) : -1;
-      if (i > 52 || nextMonth !== curMonth) {
-        m += `<div class="gh-m" style="grid-column:${mStart}/${i}">${MONTH_LABELS[curMonth]}</div>`;
-        mStart = i;
-        curMonth = nextMonth;
-      }
-    }
+    months.forEach((mm) => {
+      if (!mm.colStart) return;
+      m += `<div class="gh-m" style="grid-column:${mm.colStart}/${mm.colEnd}" title="${esc(MONTH_LABELS[mm.m])} ${mm.y}">${esc(MONTH_LABELS[mm.m])}</div>`;
+    });
     m += `</div></div>`;
 
+    // Weekband
     let w = `<div class="g-head-w"><div class="gh-label"></div><div class="gh-budget">Totaal</div><div class="gh-weeks">`;
-    for (let i = 1; i <= 52; i++) {
+    weeks.forEach((wk, i) => {
+      // Marker eerste week van een nieuwe maand
+      const firstOfMonth = i === 0 || weeks[i - 1].mIdx !== wk.mIdx;
       let cls = '';
-      if (i === 14 || i === 27 || i === 40) cls = ' gh-qd';
-      if (nowWeek && i === nowWeek) cls += ' gh-nw';
-      const monStr = weekToDate(i);
-      const monDay = parseInt(monStr.slice(8), 10);
-      const sunD = new Date(`${monStr}T12:00:00`);
-      sunD.setDate(sunD.getDate() + 6);
-      const sunDay = sunD.getDate();
-      const title = nowWeek && i === nowWeek
-        ? ` title="Huidige week (${monStr} t/m ${sunD.toISOString().substring(0, 10)})"`
-        : ` title="Week ${i}: ${monStr} t/m ${sunD.toISOString().substring(0, 10)}"`;
+      if (firstOfMonth && i > 0) cls = 'gh-qd';
+      const isNow = wk.y === todayIsoY && wk.w === todayIsoW;
+      if (isNow) cls += ' gh-nw';
+      const title = isNow
+        ? ` title="Huidige week (${wk.mondayStr} t/m ${wk.sundayStr})"`
+        : ` title="Week ${wk.w} (${wk.y}): ${wk.mondayStr} t/m ${wk.sundayStr}"`;
       w += `<div class="${cls.trim()}"${title}>`
-        + `<span class="ghw-wk">${i}</span>`
-        + `<span class="ghw-d">${monDay}</span>`
-        + `<span class="ghw-d">${sunDay}</span>`
+        + `<span class="ghw-wk">${wk.w}</span>`
+        + `<span class="ghw-d">${wk.mondayDay}</span>`
+        + `<span class="ghw-d">${wk.sundayDay}</span>`
         + `</div>`;
-    }
+    });
+    // Stel CSS-variabele voor kolomaantal in op het gantt-root
+    const g = document.getElementById('gantt');
+    if (g) g.style.setProperty('--g-cols', cols);
     return `${q}${m}${w}</div></div>`;
   }
 
@@ -113,7 +126,7 @@
         const tc = autoTextColor(col);
         const b = FS.calc.flightBudget(f);
         const span = ew - sw + 1;
-        bars += barHTML(sw, ew, col, tc, span >= 4 ? f.n : '', b, f.st || 'concept',
+        bars += barHTML(f.sd, f.ed, col, tc, span >= 4 ? f.n : '', b, f.st || 'concept',
           ` data-ci="${a(camp.id)}" data-fi="${fi}"`,
           { actualized: !!f.actualized, needAct: FS.calc.flightNeedsActuals(f) });
       });
@@ -150,7 +163,7 @@
     if (!isExp) {
       // Toon altijd één flight-bar; tactics worden pas zichtbaar als de flight
       // wordt opengeklapt. Zo opent een klik op deze bar de flight-modal.
-      bars += barHTML(sw, ew, col, tc, flight.n, FS.calc.flightBudget(flight),
+      bars += barHTML(flight.sd, flight.ed, col, tc, flight.n, FS.calc.flightBudget(flight),
         flight.st || 'concept', ` data-ci="${a(camp.id)}" data-fi="${fi}"`,
         { actualized: !!flight.actualized, needAct });
     }
@@ -180,7 +193,7 @@
       + `<span class="g-fdot" style="background:${a(col)}"></span>`
       + `<span class="g-name">${esc(tactic.n || `Tactic ${ti + 1}`)}</span></div>`
       + `<div class="g-budget">${esc(fC(tactic.b))}</div>`
-      + `<div class="g-bars">${barHTML(sw, ew, col, tc, tactic.n, tactic.b, flight.st || 'concept', ` data-ci="${a(camp.id)}" data-fi="${fi}" data-ti="${ti}"`)}</div>`
+      + `<div class="g-bars">${barHTML(tactic.sd, tactic.ed, col, tc, tactic.n, tactic.b, flight.st || 'concept', ` data-ci="${a(camp.id)}" data-fi="${fi}" data-ti="${ti}"`)}</div>`
       + `</div>`;
   }
 
@@ -252,20 +265,21 @@
     if (!gantt) return;
     const existing = gantt.querySelector('.g-now-line');
     if (existing) existing.remove();
-    const nw = getCurrentWeek();
-    if (!nw) return;
+    const nowFrac = FS.viewport && FS.viewport.nowCol ? FS.viewport.nowCol() : null;
+    if (nowFrac == null) return;
+    const cols = FS.viewport.cols();
     const headEl = gantt.querySelector('.g-head-w');
     const weeksEl = gantt.querySelector('.g-head-w .gh-weeks');
-    if (!headEl || !weeksEl) return;
+    if (!headEl || !weeksEl || cols <= 0) return;
     const headRect = headEl.getBoundingClientRect();
     const weeksRect = weeksEl.getBoundingClientRect();
     const offsetLeft = weeksRect.left - headRect.left;
-    const colWidth = weeksRect.width / 52;
-    const leftPx = offsetLeft + (nw - 0.5) * colWidth;
+    const colWidth = weeksRect.width / cols;
+    const leftPx = offsetLeft + nowFrac * colWidth;
     const line = document.createElement('div');
     line.className = 'g-now-line';
     line.style.left = `${leftPx}px`;
-    line.title = `Huidige week — W${nw}`;
+    line.title = 'Huidige week';
     gantt.appendChild(line);
   }
 
@@ -319,6 +333,7 @@
     renderGantt();
     renderSummary();
     renderLegend();
+    if (FS._refreshRangeUI) FS._refreshRangeUI();
     FS.io.autoSave();
   }
 
