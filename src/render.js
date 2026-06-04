@@ -200,14 +200,17 @@
   function renderFooter() {
     const c = FS.calc;
     const grand = c.grandTotal();
+    const spend = c.grandTotalActual();
+    const hasActuals = grand !== spend;
     const totCreatie = c.totalCreatieFlights() + c.calcCreatie();
     const totTooling = c.totalToolingFlights() + c.calcTooling();
-    const rest = FS.state.jaarTotal - grand - totCreatie - totTooling;
-    return `<div class="g-row g-foot g-tot"><div class="g-label">Totaal</div><div class="g-budget">${esc(fC(grand))}</div><div class="g-bars"></div></div>`
+    // Resterend is actual-leidend, gelijk aan de kaart bovenaan.
+    const rest = FS.state.jaarTotal - spend - totCreatie - totTooling;
+    return `<div class="g-row g-foot g-tot"><div class="g-label">Totaal${hasActuals ? ' (actual)' : ''}</div><div class="g-budget">${esc(fC(spend))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-crea"><div class="g-label">🎨 Creatie</div><div class="g-budget">${esc(fC(totCreatie))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-tool"><div class="g-label">🔧 Tooling</div><div class="g-budget">${esc(fC(totTooling))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-jaar"><div class="g-label">Jaarbudget</div><div class="g-budget">${esc(fC(FS.state.jaarTotal))}</div><div class="g-bars"></div></div>`
-      + `<div class="g-row g-foot g-rest${rest < 0 ? ' neg' : ''}"><div class="g-label">Resterend</div><div class="g-budget">${esc(fC(rest))}</div><div class="g-bars"></div></div>`;
+      + `<div class="g-row g-foot g-rest${rest < 0 ? ' neg' : ''}"><div class="g-label">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="g-budget">${esc(fC(rest))}</div><div class="g-bars"></div></div>`;
   }
 
   function renderGantt() {
