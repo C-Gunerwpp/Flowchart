@@ -216,10 +216,16 @@
     let ttTimer = null;
     const gantt = document.getElementById('gantt');
 
-    /* Legenda: funnel-filter pillen */
-    const legendEl = document.getElementById('legend');
-    if (legendEl) {
-      legendEl.addEventListener('click', (e) => {
+    /* Funnel-bar (boven de gantt): funnel-filter pillen + legenda-toggle */
+    const funnelBarEl = document.getElementById('funnelBar');
+    if (funnelBarEl) {
+      funnelBarEl.addEventListener('click', (e) => {
+        const toggle = e.target.closest('#legToggle');
+        if (toggle) {
+          document.body.classList.toggle('legend-hidden');
+          FS.render.renderFunnelBar();
+          return;
+        }
         const pill = e.target.closest('.g-funnel-pill');
         if (!pill) return;
         const fs = pill.dataset.fs;

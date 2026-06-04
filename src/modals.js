@@ -191,6 +191,7 @@
           + (stc ? `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${a(stc)};margin-left:6px;vertical-align:middle"></span>` : '')
           + `</div><div class="m-item-meta">`
           + `<span>${esc(fK(FS.calc.flightBudget(f)))}</span>`
+          + (f.actualized ? `<span style="color:#9A3412" title="Werkelijk besteed">💵${esc(fK(f.actualBudget || 0))}</span>` : '')
           + (f.cb ? `<span style="color:#EC4899">🎨${esc(fK(f.cb))}</span>` : '')
           + (f.tc ? `<span style="color:#1E40AF">🔧${esc(fK(f.tc))}</span>` : '')
           + `<span>W${dateToWeek(f.sd)}–W${dateToWeek(f.ed)}</span>`
@@ -269,6 +270,21 @@
       + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFcb" type="number" value="${f.cb || 0}" step="100" style="border-color:#FBCFE8;background:#FDF2F8"></span></div>`
       + `<div class="mf-field"><label style="color:#1E40AF">🔧 Tooling</label>`
       + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFtc" type="number" value="${f.tc || 0}" step="100" style="border-color:#BFDBFE;background:#EFF6FF"></span></div></div>`;
+
+    if (f.actualized) {
+      const planned = f.plannedBudget != null ? f.plannedBudget : FS.calc.flightBudget(f);
+      const act = f.actualBudget || 0;
+      const dAct = act - planned;
+      const dCol = dAct > 0 ? '#DC2626' : dAct < 0 ? '#059669' : '#6B7280';
+      const dSign = dAct > 0 ? '+' : '';
+      h += `<div class="mf-row act-compare">`
+        + `<div class="mf-field"><label>📐 Planned budget</label>`
+        + `<span class="cur-wrap"><span class="cur-sym">€</span><input type="number" value="${planned}" disabled style="background:#F1F5F9;color:#475569"></span></div>`
+        + `<div class="mf-field"><label>💵 Werkelijk besteed</label>`
+        + `<span class="cur-wrap"><span class="cur-sym">€</span><input type="number" value="${act}" disabled style="background:#FFF7ED;color:#9A3412;font-weight:700"></span></div>`
+        + `<div class="mf-field"><label>Verschil</label>`
+        + `<span class="cur-wrap"><span class="cur-sym" style="color:${dCol}">€</span><input value="${dSign}${esc(fC(dAct).replace(/^€\s?/, ''))}" disabled style="color:${dCol};font-weight:700"></span></div></div>`;
+    }
 
     h += `<div class="mf-actions">`
       + `<button class="mbtn" id="mFshiftL4" title="4 weken naar links">«</button>`
@@ -500,20 +516,47 @@
     const camp = FS.state.campaigns[ci];
     const f = camp.segs[fi];
     if (!f) return;
-    const now = new Date();
-    f.actualized = true;
-    f.actualizedAt = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
-    // Als alle flights van de campagne geactualiseerd zijn → campagne vergrendelen
-    const allDone = (camp.segs || []).length > 0
-      && camp.segs.every((fl) => fl.actualized);
-    if (allDone && !camp.locked) {
-      camp.locked = true;
-      if (FS.toast) FS.toast.show(`Campagne "${camp.label}" is vergrendeld na actualisatie.`, 'success', 4500);
-    } else if (FS.toast) {
-      FS.toast.show(`Flight gemarkeerd als actual.`, 'success');
-    }
-    if (FS.io) FS.io.autoSave();
-    showFlightModal(ci, fi);
+    const planned = FS.calc.flightBudget(f);
+    const preset = f.actualBudget != null ? f.actualBudget : planned;
+    showConfirm(
+      `<div style="text-align:left">`
+      + `<strong>📋 Flight actual maken</strong>`
+      + `<div style="font-size:11px;color:#6B7280;margin-top:4px;line-height:1.5">Vul het werkelijk bestede budget in. Het planned budget `
+      + `(<strong>${esc(fC(planned))}</strong>) blijft bewaard zodat je altijd kunt terugkijken. `
+      + `De flight wordt automatisch op <strong>Afgerond</strong> gezet.</div>`
+      + `<div style="margin-top:12px"><label style="font-size:10px;font-weight:700;color:#000050;display:block;margin-bottom:4px">💵 Werkelijk besteed budget</label>`
+      + `<span class="cur-wrap" style="width:100%;display:inline-block"><span class="cur-sym">€</span>`
+      + `<input id="cfmActAmt" type="number" value="${preset}" step="100" style="width:100%"></span></div></div>`,
+      (ok) => {
+        if (!ok) return;
+        const inp = document.getElementById('cfmActAmt');
+        const val = inp ? (parseFloat(inp.value) || 0) : planned;
+        const now = new Date();
+        f.actualized = true;
+        f.actualBudget = val;
+        f.plannedBudget = planned; // snapshot ter referentie
+        if (f.st !== 'afgerond') f._prevSt = f.st;
+        f.st = 'afgerond';
+        f.actualizedAt = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+        // Als alle flights van de campagne geactualiseerd zijn → campagne vergrendelen
+        const allDone = (camp.segs || []).length > 0
+          && camp.segs.every((fl) => fl.actualized);
+        if (allDone && !camp.locked) {
+          camp.locked = true;
+          if (FS.toast) FS.toast.show(`Campagne "${camp.label}" is vergrendeld na actualisatie.`, 'success', 4500);
+        } else if (FS.toast) {
+          FS.toast.show(`Flight op Afgerond gezet en geactualiseerd.`, 'success');
+        }
+        if (FS.io) FS.io.autoSave();
+        showFlightModal(ci, fi);
+      },
+      '📋',
+    );
+    // Focus + selecteer het invoerveld zodra het dialoog open is.
+    setTimeout(() => {
+      const inp = document.getElementById('cfmActAmt');
+      if (inp) { inp.focus(); inp.select(); }
+    }, 50);
   }
 
   function reopenFlight(ci, fi) {
@@ -521,11 +564,14 @@
     const f = camp.segs[fi];
     if (!f) return;
     showConfirm(
-      `Weet je zeker dat je deze flight wilt heropenen?<br><span style="font-size:11px;color:#6B7280">De campagne wordt automatisch ontgrendeld zodat je weer kunt aanpassen.</span>`,
+      `Weet je zeker dat je deze flight wilt heropenen?<br><span style="font-size:11px;color:#6B7280">De campagne wordt automatisch ontgrendeld en het planned budget wordt weer leidend.</span>`,
       (ok) => {
         if (!ok) return;
         delete f.actualized;
         delete f.actualizedAt;
+        delete f.actualBudget;
+        delete f.plannedBudget;
+        if (f._prevSt) { f.st = f._prevSt; delete f._prevSt; }
         if (camp.locked) camp.locked = false;
         if (FS.io) FS.io.autoSave();
         showFlightModal(ci, fi);

@@ -58,6 +58,34 @@
     return FS.state.campaigns.reduce((a, c) => a + campaignBudget(c), 0);
   }
 
+  /* ----- Effectief (actual-leidend) budget -----
+   * Zodra een flight geactualiseerd is, is het werkelijk bestede budget
+   * (actualBudget) leidend voor het berekenen van het resterende budget.
+   * Het planned budget (flightBudget) blijft bewaard puur ter referentie.
+   */
+  function flightEffective(flight) {
+    if (flight && flight.actualized && flight.actualBudget != null) {
+      return flight.actualBudget;
+    }
+    return flightBudget(flight);
+  }
+
+  function campaignEffectiveSum(camp) {
+    return camp.segs.reduce((a, f) => a + flightEffective(f), 0);
+  }
+
+  function campaignEffective(camp) {
+    // Handmatig campagnebudget blijft leidend zolang geen enkele flight
+    // geactualiseerd is; zodra er actuals zijn telt de werkelijke besteding.
+    const hasActuals = (camp.segs || []).some((f) => f.actualized);
+    if (camp.budget > 0 && !hasActuals) return camp.budget;
+    return campaignEffectiveSum(camp);
+  }
+
+  function grandTotalActual() {
+    return FS.state.campaigns.reduce((a, c) => a + campaignEffective(c), 0);
+  }
+
   function channelSum(channels) {
     let total = 0;
     for (const k in channels) total += channels[k] || 0;
@@ -135,6 +163,10 @@
     campaignFlightSum,
     campaignBudget,
     grandTotal,
+    flightEffective,
+    campaignEffectiveSum,
+    campaignEffective,
+    grandTotalActual,
     channelSum,
     channelFee,
     tacticFee,

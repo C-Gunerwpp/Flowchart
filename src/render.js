@@ -290,7 +290,11 @@
     const net = total - fee;
     const totCreatie = c.totalCreatieFlights() + c.calcCreatie();
     const totTooling = c.totalToolingFlights() + c.calcTooling();
-    const rest = FS.state.jaarTotal - total - totCreatie - totTooling;
+    // Resterend budget is gebaseerd op de werkelijke (actual-leidende) besteding:
+    // geactualiseerde flights tellen mee met hun werkelijk bestede budget.
+    const spend = c.grandTotalActual();
+    const rest = FS.state.jaarTotal - spend - totCreatie - totTooling;
+    const hasActuals = FS.state.campaigns.some((cp) => (cp.segs || []).some((f) => f.actualized));
     const bj = FS.state.budgetJournal;
     const subtitle = bj.mods.length
       ? `Basis ${fC(bj.base)} + ${bj.mods.length} wijz.`
@@ -301,13 +305,14 @@
       + `<div class="scard s-fee"><div class="sl">Handling Fee</div><div class="sv">${esc(fC(fee))}</div></div>`
       + `<div class="scard s-crea s-click" id="scC"><div class="sl">Creatie</div><div class="sv">${esc(fC(totCreatie))}</div></div>`
       + `<div class="scard s-tool s-click" id="scT"><div class="sl">Tooling</div><div class="sv">${esc(fC(totTooling))}</div></div>`
-      + `<div class="scard s-rest"><div class="sl">Resterend</div><div class="sv" style="color:${rest < 0 ? '#DC2626' : '#059669'}">${esc(fC(rest))}</div></div>`
+      + `<div class="scard s-rest"><div class="sl">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="sv" style="color:${rest < 0 ? '#DC2626' : '#059669'}">${esc(fC(rest))}</div></div>`
       + `<div class="scard s-add" id="addCampBtn">+ Campagne</div>`;
   }
 
-  function renderLegend() {
-    // Funnel-filter pillen
-    let html = `<span class="leg-lbl">🪜 FUNNEL:</span>`;
+  function renderFunnelBar() {
+    const bar = document.getElementById('funnelBar');
+    if (!bar) return;
+    let html = `<span class="leg-lbl">🪜 FUNNEL FILTER:</span>`;
     const all = !funnelFilter;
     html += `<button class="g-funnel-pill${all ? ' on' : ''}" data-fs="__all" title="Alle fases tonen">Alle</button>`;
     FS.constants.FUNNEL_STAGES.forEach((st) => {
@@ -316,8 +321,13 @@
     });
     const noneOn = isFunnelVisible('');
     html += `<button class="g-funnel-pill${noneOn ? ' on' : ''}" data-fs="" title="Campagnes zonder funnelfase">— Geen —</button>`;
+    const hidden = document.body.classList.contains('legend-hidden');
+    html += `<button class="leg-toggle" id="legToggle" title="Toon/verberg de legenda onderaan">${hidden ? '👁 Toon legenda' : '🙈 Verberg legenda'}</button>`;
+    bar.innerHTML = html;
+  }
 
-    html += `<span class="leg-lbl" style="margin-left:14px">CAMPAGNES:</span>`;
+  function renderLegend() {
+    let html = `<span class="leg-lbl">CAMPAGNES:</span>`;
     FS.state.campaigns.forEach((c) => {
       html += `<div class="leg-item"><div class="leg-dot" style="background:${a(c.col)}"></div>${esc(c.label)}</div>`;
     });
@@ -332,6 +342,7 @@
   function render() {
     renderGantt();
     renderSummary();
+    renderFunnelBar();
     renderLegend();
     if (FS._refreshRangeUI) FS._refreshRangeUI();
     FS.io.autoSave();
@@ -360,6 +371,6 @@
       + '</div>';
   }
 
-  FS.render = { render, renderGantt, renderSummary, renderLegend, barHTML, palHTML, positionNowLine,
+  FS.render = { render, renderGantt, renderSummary, renderLegend, renderFunnelBar, barHTML, palHTML, positionNowLine,
     setFunnelStage, setFunnelAll, isFunnelVisible, funnelStageInfo };
 })(window.FS = window.FS || {});

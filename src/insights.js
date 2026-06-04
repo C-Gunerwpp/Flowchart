@@ -11,6 +11,15 @@
 
   let isOpen = false;
 
+  // Actieve tab in het inzichten-paneel.
+  let activeTab = 'overview';
+  const TABS = [
+    { id: 'overview', label: '📊 Overzicht' },
+    { id: 'channels', label: '📡 Kanalen' },
+    { id: 'funnel', label: '🪜 Funnel & Status' },
+    { id: 'actuals', label: '📐 Planned vs. Actual' },
+  ];
+
   // Filters (periode + kanalen + funnel). Worden bij eerste open of jaarwissel gereset.
   let filters = null;
   let filtersYear = null;
@@ -186,6 +195,83 @@
     return rows;
   }
 
+  /** Planned vs. werkelijk op campagne- én flight-niveau (flight-actuals). */
+  function collectCampaignActuals() {
+    ensureFilters();
+    const camps = [];
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
+      let planned = 0;
+      let actual = 0;
+      let anyActual = false;
+      const flights = [];
+      c.segs.forEach((f) => {
+        const w = periodWeight(f.sd, f.ed);
+        if (w <= 0) return;
+        const p = FS.calc.flightBudget(f) * w;
+        const a = (f.actualized && f.actualBudget != null) ? f.actualBudget * w : p;
+        if (f.actualized) anyActual = true;
+        planned += p;
+        actual += a;
+        flights.push({
+          name: f.n || 'Flight',
+          planned: p,
+          actual: a,
+          actualized: !!f.actualized,
+          variance: a - p,
+        });
+      });
+      if (planned > 0 || actual > 0) {
+        camps.push({
+          camp: c.label,
+          sec: c.sec,
+          planned,
+          actual,
+          anyActual,
+          variance: actual - planned,
+          flights,
+        });
+      }
+    });
+    return camps;
+  }
+
+  /** Budget per funnelfase (naar rato van periode). */
+  function aggregateFunnel() {
+    ensureFilters();
+    const totals = {};
+    FS.constants.FUNNEL_STAGES.forEach((st) => { totals[st.id] = 0; });
+    totals[''] = 0;
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
+      let total = 0;
+      c.segs.forEach((f) => {
+        const w = periodWeight(f.sd, f.ed);
+        if (w > 0) total += FS.calc.flightBudget(f) * w;
+      });
+      const key = c.funnel || '';
+      totals[key] = (totals[key] || 0) + total;
+    });
+    return totals;
+  }
+
+  /** Budget per flight-status (naar rato van periode). */
+  function aggregateStatus() {
+    ensureFilters();
+    const totals = {};
+    FS.constants.STATUSES.forEach((st) => { totals[st.id] = 0; });
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
+      c.segs.forEach((f) => {
+        const w = periodWeight(f.sd, f.ed);
+        if (w <= 0) return;
+        const key = f.st || 'concept';
+        totals[key] = (totals[key] || 0) + FS.calc.flightBudget(f) * w;
+      });
+    });
+    return totals;
+  }
+
   /* =====================  CHARTS (SVG)  ===================== */
 
   const CHART_COLORS = [
@@ -338,6 +424,86 @@
       + `<td class="num ${tcls}"><strong>${tsign}${esc(fC(tv))}</strong></td></tr></tfoot></table>`;
   }
 
+  /* ----- Horizontale balkenlijst (budget per categorie) ----- */
+  function barList(entries) {
+    const valid = entries.filter((e) => e.value > 0).sort((a, b) => b.value - a.value);
+    if (!valid.length) {
+      return `<div class="ins-empty">Geen budget om te tonen voor deze selectie.</div>`;
+    }
+    const max = Math.max(...valid.map((e) => e.value), 1);
+    const sum = valid.reduce((a, e) => a + e.value, 0);
+    let rows = '';
+    valid.forEach((e) => {
+      const pct = (e.value / max) * 100;
+      const share = ((e.value / sum) * 100).toFixed(1);
+      rows += `<div class="ins-bl-row">`
+        + `<div class="ins-bl-lbl">${esc(e.label)}</div>`
+        + `<div class="ins-bl-track"><div class="ins-bl-fill" style="width:${pct}%;background:${esc(e.color || '#0026C5')}"></div></div>`
+        + `<div class="ins-bl-val">${esc(fC(e.value))}</div>`
+        + `<div class="ins-bl-pct">${share}%</div></div>`;
+    });
+    return `<div class="ins-bl">${rows}</div>`;
+  }
+
+  function funnelChart() {
+    const totals = aggregateFunnel();
+    const entries = FS.constants.FUNNEL_STAGES.map((st) => ({
+      label: `${st.icon} ${st.name}`, value: totals[st.id] || 0, color: st.color,
+    }));
+    entries.push({ label: '— Geen funnelfase —', value: totals[''] || 0, color: '#94A3B8' });
+    return barList(entries);
+  }
+
+  function statusChart() {
+    const totals = aggregateStatus();
+    const entries = FS.constants.STATUSES.map((st) => ({
+      label: st.name, value: totals[st.id] || 0, color: st.color || '#0026C5',
+    }));
+    return barList(entries);
+  }
+
+  /** Tabel: planned vs werkelijk per campagne (met uitklapbare flights). */
+  function campaignActualsTable(camps) {
+    if (!camps.length) {
+      return `<div class="ins-empty">Geen campagnes in de huidige selectie.</div>`;
+    }
+    let totP = 0;
+    let totA = 0;
+    let tbody = '';
+    camps.forEach((c) => {
+      totP += c.planned;
+      totA += c.actual;
+      const cls = c.variance > 0 ? 'ins-var-neg' : c.variance < 0 ? 'ins-var-pos' : '';
+      const sign = c.variance > 0 ? '+' : '';
+      const badge = c.anyActual
+        ? `<span class="ins-pill ins-pill-act">actual</span>`
+        : `<span class="ins-pill ins-pill-plan">planned</span>`;
+      tbody += `<tr class="r-camp"><td><strong>${esc(c.camp)}</strong> ${badge} `
+        + `<span style="color:#6B7280;font-size:9px">(${c.sec === 'ao' ? 'Always-On' : 'Campagne'})</span></td>`
+        + `<td class="num">${esc(fC(c.planned))}</td>`
+        + `<td class="num">${esc(fC(c.actual))}</td>`
+        + `<td class="num ${cls}">${sign}${esc(fC(c.variance))}</td></tr>`;
+      c.flights.forEach((f) => {
+        const fcls = f.variance > 0 ? 'ins-var-neg' : f.variance < 0 ? 'ins-var-pos' : '';
+        const fsign = f.variance > 0 ? '+' : '';
+        tbody += `<tr><td style="padding-left:20px">✈️ ${esc(f.name)}${f.actualized ? ' ✓' : ''}</td>`
+          + `<td class="num">${esc(fC(f.planned))}</td>`
+          + `<td class="num">${esc(fC(f.actual))}</td>`
+          + `<td class="num ${fcls}">${fsign}${esc(fC(f.variance))}</td></tr>`;
+      });
+    });
+    const tv = totA - totP;
+    const tcls = tv > 0 ? 'ins-var-neg' : tv < 0 ? 'ins-var-pos' : '';
+    const tsign = tv > 0 ? '+' : '';
+    return `<table class="ins-table">`
+      + `<thead><tr><th>Campagne / flight</th><th class="num">Planned</th><th class="num">Werkelijk</th><th class="num">Δ</th></tr></thead>`
+      + `<tbody>${tbody}</tbody>`
+      + `<tfoot><tr><td><strong>Totaal</strong></td>`
+      + `<td class="num"><strong>${esc(fC(totP))}</strong></td>`
+      + `<td class="num"><strong>${esc(fC(totA))}</strong></td>`
+      + `<td class="num ${tcls}"><strong>${tsign}${esc(fC(tv))}</strong></td></tr></tfoot></table>`;
+  }
+
   /* =====================  KPIs  ===================== */
 
   function kpi(label, value, mod) {
@@ -365,12 +531,13 @@
     const filtTooling = spend.tooling.reduce((a, v) => a + v, 0);
 
     // Full-year referenties (voor jaarbudget / fee / rest)
-    const grandTotal = FS.calc.grandTotal();
     const totalFee = FS.calc.totalFee();
     const totCreatie = FS.calc.totalCreatieFlights() + FS.calc.calcCreatie();
     const totTooling = FS.calc.totalToolingFlights() + FS.calc.calcTooling();
     const jaar = s.jaarTotal;
-    const rest = jaar - grandTotal - totCreatie - totTooling;
+    // Resterend volgt de actual-leidende besteding (geactualiseerde flights tellen
+    // mee met hun werkelijk bestede budget).
+    const rest = jaar - FS.calc.grandTotalActual() - totCreatie - totTooling;
 
     const numCamps = s.campaigns.length;
     const numFlights = s.campaigns.reduce((a, c) => a + c.segs.length, 0);
@@ -436,22 +603,54 @@
         : '')
       + `</div>`;
 
-    h += `<div class="ins-grid">`
-      + kpi('🎯 Jaarbudget', fC(jaar))
-      + kpi(isFiltered ? '📺 Media (periode)' : '📺 Media (campagnes)', fC(filtMedia))
-      + kpi(isFiltered ? '🎨 Creatie (periode)' : '🎨 Creatie', fC(filtCreatie))
-      + kpi(isFiltered ? '🔧 Tooling (periode)' : '🔧 Tooling', fC(filtTooling))
-      + kpi('💰 Fee totaal', fC(totalFee))
-      + kpi(rest >= 0 ? '✓ Restbudget (jaar)' : '⚠ Overschrijding (jaar)', fC(Math.abs(rest)), rest >= 0 ? 'pos' : 'neg')
-      + kpi('📋 Campagnes', String(numCamps))
-      + kpi('✈️ Flights', String(numFlights))
-      + kpi('🎯 Tactics', String(numTactics))
+    // Tab-balk
+    h += `<div class="ins-tabs">`
+      + TABS.map((t) => {
+        const isActualTab = t.id === 'actuals';
+        const anyActual = isActualTab && FS.state.campaigns.some((c) => (c.segs || []).some((f) => f.actualized));
+        const dot = anyActual ? `<span class="ins-tab-dot"></span>` : '';
+        return `<button class="ins-tab${activeTab === t.id ? ' on' : ''}" data-tab="${esc(t.id)}">${t.label}${dot}</button>`;
+      }).join('')
       + `</div>`;
 
-    h += section('📊 Kanaalverdeling', donut(aggregateChannels(), FS.constants.CHANNELS));
-    h += section(`📈 Spend curve (per maand · ${s.year})`, stackedBars(spend));
-    h += section('🔁 Always-On vs. losse campagnes', splitBar(aggregateSectionSplit()));
-    h += section('📐 Budget vs. werkelijk (actuals)', actualsTable(collectActuals()));
+    h += `<div class="ins-tabpane">`;
+
+    if (activeTab === 'overview') {
+      h += `<div class="ins-grid">`
+        + kpi('🎯 Jaarbudget', fC(jaar))
+        + kpi(isFiltered ? '📺 Media (periode)' : '📺 Media (campagnes)', fC(filtMedia))
+        + kpi(isFiltered ? '🎨 Creatie (periode)' : '🎨 Creatie', fC(filtCreatie))
+        + kpi(isFiltered ? '🔧 Tooling (periode)' : '🔧 Tooling', fC(filtTooling))
+        + kpi('💰 Fee totaal', fC(totalFee))
+        + kpi(rest >= 0 ? '✓ Restbudget (jaar)' : '⚠ Overschrijding (jaar)', fC(Math.abs(rest)), rest >= 0 ? 'pos' : 'neg')
+        + kpi('📋 Campagnes', String(numCamps))
+        + kpi('✈️ Flights', String(numFlights))
+        + kpi('🎯 Tactics', String(numTactics))
+        + `</div>`;
+      h += section(`📈 Spend curve (per maand · ${s.year})`, stackedBars(spend));
+      h += section('🔁 Always-On vs. losse campagnes', splitBar(aggregateSectionSplit()));
+    } else if (activeTab === 'channels') {
+      h += section('📊 Kanaalverdeling (budget)', donut(aggregateChannels(), FS.constants.CHANNELS));
+      h += section(`📈 Spend curve (per maand · ${s.year})`, stackedBars(spend));
+    } else if (activeTab === 'funnel') {
+      h += section('🪜 Budget per funnelfase', funnelChart());
+      h += section('🚦 Budget per status', statusChart());
+      h += section('🔁 Always-On vs. losse campagnes', splitBar(aggregateSectionSplit()));
+    } else if (activeTab === 'actuals') {
+      const camps = collectCampaignActuals();
+      const totP = camps.reduce((a, c) => a + c.planned, 0);
+      const totA = camps.reduce((a, c) => a + c.actual, 0);
+      const diff = totA - totP;
+      h += `<div class="ins-grid">`
+        + kpi('📐 Planned (selectie)', fC(totP))
+        + kpi('💵 Werkelijk (selectie)', fC(totA))
+        + kpi(diff > 0 ? '⚠ Meer besteed' : '✓ Bespaard', fC(Math.abs(diff)), diff > 0 ? 'neg' : 'pos')
+        + `</div>`;
+      h += section('📐 Planned vs. werkelijk — per campagne', campaignActualsTable(camps));
+      h += section('🎯 Budget vs. werkelijk — per tactic', actualsTable(collectActuals()));
+    }
+
+    h += `</div>`; // ins-tabpane
 
     h += `<div class="ins-actions">`
       + `<button class="mbtn pri" id="insPDF">📄 Rapport-PDF</button>`
@@ -461,6 +660,13 @@
     body.innerHTML = h;
 
     wireFilterEvents();
+
+    document.querySelectorAll('#insBody .ins-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeTab = btn.dataset.tab;
+        render();
+      });
+    });
 
     const pdfBtn = document.getElementById('insPDF');
     if (pdfBtn) pdfBtn.addEventListener('click', generatePDF);
@@ -554,6 +760,9 @@
     const splitHtml = splitBar(aggregateSectionSplit());
     const actuals = collectActuals();
     const actHtml = actualsTable(actuals);
+    const campActuals = collectCampaignActuals();
+    const hasFlightActuals = campActuals.some((c) => c.anyActual);
+    const campActHtml = campaignActualsTable(campActuals);
 
     let campRows = '';
     s.campaigns.forEach((c) => {
@@ -638,7 +847,9 @@ ${splitHtml}
 <h2>📋 Campagne-overzicht</h2>
 <table><thead><tr><th>Item</th><th>Periode</th><th class="num">Budget</th><th class="num">Creatie</th><th class="num">Tooling</th></tr></thead><tbody>${campRows}</tbody></table>
 
-${actuals.length ? `<h2>📐 Budget vs. werkelijk</h2>${actHtml}` : ''}
+${hasFlightActuals ? `<h2>📐 Planned vs. werkelijk — per campagne</h2>${campActHtml}` : ''}
+
+${actuals.length ? `<h2>🎯 Budget vs. werkelijk — per tactic</h2>${actHtml}` : ''}
 
 <div class="footer">Flowchart Studio · ${dateStr}</div>
 </body></html>`;
