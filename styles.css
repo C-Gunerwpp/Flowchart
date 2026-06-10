@@ -492,3 +492,76 @@ body.legend-hidden .legend{display:none}
 
 /* Print: verberg dropdown en vandaag-lijn niet - print juist kolom */
 @media print{.tb-menu,.g-now-line::before{display:none!important}.g-now-line{background:#DC2626!important}}
+
+/* =====================================================
+   Communicatie naar klant — settings (incl./excl. CTC + BTW)
+   ===================================================== */
+.ss-ic-cm{background:#DCFCE7}
+.ss-check{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #F3F4F6;cursor:pointer}
+.ss-check:last-of-type{border-bottom:none}
+.ss-check-main{display:flex;align-items:center;gap:10px;flex:1;cursor:pointer}
+.ss-check .ss-cb{width:17px;height:17px;accent-color:#0026C5;cursor:pointer;flex-shrink:0;margin:0}
+.ss-check-tx{font-size:11px;font-weight:700;color:#000050;flex:1}
+.ss-check-tx em{font-style:normal;font-weight:500;color:#6B7280;font-size:10px;margin-left:5px}
+.ss-check-pct{position:relative;display:inline-flex;align-items:center}
+.ss-check-pct input{width:62px;border:1.5px solid #E5E7EB;border-radius:6px;padding:5px 22px 5px 8px;font-size:11px;font-weight:700;text-align:right;color:#000050;font-family:inherit;background:#fff}
+.ss-check-pct input:focus{border-color:#0026C5;outline:none;box-shadow:0 0 0 3px rgba(0,38,197,.08)}
+.ss-check-pct .fi-suf{position:absolute;right:8px;font-size:9px;color:#9CA3AF;font-weight:700;pointer-events:none}
+.ss-comm-prev{margin-top:12px;padding:10px 12px;background:#F0F4FF;border-radius:8px;display:flex;flex-direction:column;gap:4px}
+.ss-comm-line{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:#334155;font-weight:600}
+.ss-comm-line strong{color:#000050;font-weight:800}
+.ss-comm-line.ss-comm-tot{margin-top:4px;padding-top:6px;border-top:1px solid #D6DEF5;font-size:12px}
+.ss-comm-line.ss-comm-tot strong{font-size:14px}
+
+/* Communicatie-kaart in de summary-bar (verwijderd, maar klasse behouden) */
+.scard.s-comm{border-left-color:#059669}
+/* Footer-rijen: media/fee/CTC/BTW voor duidelijk totaal over alle campagnes */
+.gantt .g-row.g-foot.g-media .g-label{color:#0D9488}
+.gantt .g-row.g-foot.g-fee .g-label{color:#8B5CF6}
+.gantt .g-row.g-foot.g-tot .g-label{color:#000050}
+.gantt .g-row.g-foot.g-btw .g-label{color:#B45309}
+.g-foot-note{font-weight:500;opacity:.6;margin-left:5px}
+
+/* =====================================================
+   Sub-merken / consolidatie — merkfilter, groepskoppen, subtotalen
+   ===================================================== */
+.brand-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:7px 20px;background:#F4F1FA;flex-shrink:0;border-bottom:1px solid #E5E0F0}
+.brand-bar .leg-lbl{font-size:9px}
+.g-brand-pill{display:inline-flex;align-items:center;gap:5px;font-size:9px;font-weight:700;padding:3px 10px;border-radius:14px;border:1px solid #D1D5DB;background:#fff;color:#475569;cursor:pointer;font-family:inherit;line-height:1;transition:all .12s}
+.g-brand-pill:hover{border-color:#000050;color:#000050}
+.g-brand-pill.on{background:#000050;border-color:transparent;color:#fff}
+.g-brand-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.g-sec.g-sec-brand{align-items:center;gap:8px;background:linear-gradient(90deg,#EAE6F5,#F4F2FA);border-top:2px solid #C9C0E4}
+.g-sec-brand .g-sec-dot{width:11px;height:11px;border-radius:50%;box-shadow:0 0 0 2px #fff;flex-shrink:0}
+.g-sec-brand .g-sec-cnt{margin-left:auto;background:#000050;color:#fff;font-size:8px;font-weight:800;padding:1px 8px;border-radius:9px;letter-spacing:0}
+.g-row.g-foot.g-brandtot{min-height:26px;background:#FAF9FE;border-bottom:1px solid #ECE8F6}
+.g-brandtot .g-label{font-weight:800;color:#000050;font-style:italic}
+.g-brandtot .g-budget{font-weight:800;color:#000050}
+
+/* Merge-modal */
+.mg-intro{font-size:11px;color:#475569;line-height:1.6;margin:0 0 14px}
+.mg-drop{display:flex;align-items:center;gap:14px;padding:16px;border:2px dashed #C7D2FE;border-radius:12px;background:#F8FAFF;cursor:pointer;transition:all .15s;margin-bottom:14px}
+.mg-drop:hover,.mg-drop.ov{border-color:#0026C5;background:#EEF2FF}
+.mg-drop-ic{font-size:28px;flex-shrink:0}
+.mg-drop strong{display:block;font-size:12px;color:#000050;font-weight:700}
+.mg-drop-sub{display:block;font-size:10px;color:#6B7280;margin-top:3px}
+.mg-empty{text-align:center;font-size:11px;color:#9CA3AF;font-style:italic;padding:16px 0;background:#F9FAFB;border-radius:8px;margin-bottom:14px}
+.mg-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.mg-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#fff;border:1px solid #E5E7EB;border-radius:10px;box-shadow:0 1px 2px rgba(0,0,80,.04)}
+.mg-item-ic{font-size:16px;flex-shrink:0}
+.mg-brand{flex:0 0 170px;border:1.5px solid #E5E7EB;border-radius:7px;padding:7px 10px;font-size:12px;font-weight:700;color:#000050;font-family:inherit;background:#F8FAFF}
+.mg-brand:focus{border-color:#0026C5;outline:none;box-shadow:0 0 0 3px rgba(0,38,197,.08);background:#fff}
+.mg-item-meta{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.mg-item-file{font-size:10px;color:#6B7280;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mg-item-stat{font-size:10px;color:#000050;font-weight:700}
+.mg-del{background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:14px;width:28px;height:28px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.mg-del:hover{background:#FEE2E2;color:#DC2626}
+.mg-group{display:flex;flex-direction:column;gap:5px;margin-bottom:16px}
+.mg-group label{font-size:9px;font-weight:700;color:#000050;text-transform:uppercase;letter-spacing:.3px}
+.mg-group input{border:1.5px solid #E5E7EB;border-radius:8px;padding:9px 12px;font-size:13px;font-weight:700;color:#000050;font-family:inherit}
+.mg-group input:focus{border-color:#0026C5;outline:none;box-shadow:0 0 0 3px rgba(0,38,197,.1)}
+.mg-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:14px;border-top:1px solid #E5E7EB}
+.mg-sum{font-size:11px;font-weight:700;color:#6B7280}
+.mg-foot-btns{display:flex;gap:8px}
+.mg-foot-btns .mbtn{padding:9px 18px;font-size:11px}
+.mbtn[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none}

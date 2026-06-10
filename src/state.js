@@ -6,6 +6,22 @@
 
   const C = FS.constants;
 
+  /** Standaard-instellingen. Eén bron van waarheid zodat reset/laden consistent
+   *  dezelfde defaults toepassen (incl. communicatie-voorkeuren). */
+  function defaultSettings() {
+    return {
+      notifyActuals: false,
+      // Communicatie-basis: bepaalt of de handling fee IN de budgetten zit
+      // (CTC) of er bovenop komt (media-budget). Verschilt per klant.
+      comm: {
+        inclCtc: true,    // budgetten zijn CTC (incl. fee) → fee wordt eraf gehaald
+        exclCtc: false,   // budgetten zijn excl. fee → fee komt erbovenop
+        inclBtw: false,   // toon bedragen incl. BTW
+        btwPct: 21,       // BTW-percentage (instelbaar)
+      },
+    };
+  }
+
   FS.state = {
     budgetJournal: { base: C.DEFAULT_BASE_BUDGET, mods: [] },
     creatieJournal: { mods: [] },
@@ -21,8 +37,19 @@
     selectedCamp: null,
     selectedFlight: null,
     selectedTactic: null,
-    settings: { notifyActuals: false },
+    settings: defaultSettings(),
+    defaultSettings,
   };
+
+  /** Voeg ingeladen instellingen samen met de defaults (incl. geneste `comm`),
+   *  zodat oudere bestanden zonder communicatie-voorkeuren correct openen. */
+  function mergeSettings(loaded) {
+    const def = defaultSettings();
+    const out = Object.assign({}, def, loaded || {});
+    out.comm = Object.assign({}, def.comm, (loaded && loaded.comm) || {});
+    return out;
+  }
+  FS.state.mergeSettings = mergeSettings;
 
   FS.state.reset = function reset() {
     const s = FS.state;
@@ -39,6 +66,6 @@
     s.selectedCamp = null;
     s.selectedFlight = null;
     s.selectedTactic = null;
-    s.settings = { notifyActuals: false };
+    s.settings = defaultSettings();
   };
 })(window.FS = window.FS || {});

@@ -58,6 +58,53 @@
     return FS.state.campaigns.reduce((a, c) => a + campaignBudget(c), 0);
   }
 
+  /* ----- Communicatie-basis (handling fee + BTW) -----
+   * Bepaalt of de handling fee IN de campagnebudgetten zit of erbovenop komt.
+   * Dit verschilt per klant en bepaalt hoe het budget over alle campagnes en
+   * flights wordt weergegeven.
+   * - 'incl' (CTC): budgetten zijn cost-to-client → fee zit erin → media = budget − fee
+   * - 'excl' (media): budgetten zijn netto media → fee komt erbovenop → CTC = budget + fee
+   */
+  function feeMode() {
+    const comm = (FS.state.settings && FS.state.settings.comm) || {};
+    return (comm.exclCtc && !comm.inclCtc) ? 'excl' : 'incl';
+  }
+  /** BTW-tarief als fractie (0 wanneer "incl. BTW" uit staat). */
+  function btwRate() {
+    const comm = (FS.state.settings && FS.state.settings.comm) || {};
+    if (!comm.inclBtw) return 0;
+    return Number.isFinite(comm.btwPct) ? comm.btwPct / 100 : 0.21;
+  }
+  function btwPctValue() {
+    const comm = (FS.state.settings && FS.state.settings.comm) || {};
+    return Number.isFinite(comm.btwPct) ? comm.btwPct : 21;
+  }
+
+  /** Volledige budgetopbouw over alle campagnes/flights heen, rekening houdend
+   *  met de fee-richting (incl./excl. CTC) en optioneel BTW. Altijd actual-leidend:
+   *  geactualiseerde flights tellen met hun werkelijk bestede budget, de rest valt
+   *  terug op de planning. */
+  function budgetBreakdown() {
+    const total = grandTotalActual(); // actual-leidend (valt terug op planning)
+    const fee = totalFee();          // fee-richting volgt feeMode()
+    const mode = feeMode();
+    const media = mode === 'excl' ? total : total - fee;
+    const ctc = mode === 'excl' ? total + fee : total;
+    const rate = btwRate();
+    const btwAmount = ctc * rate;
+    return {
+      mode,
+      total,
+      fee,
+      media,
+      ctc,
+      btwIncluded: rate > 0,
+      btwPct: btwPctValue(),
+      btwAmount,
+      ctcInclBtw: ctc + btwAmount,
+    };
+  }
+
   /* ----- Effectief (actual-leidend) budget -----
    * Zodra een flight geactualiseerd is, is het werkelijk bestede budget
    * (actualBudget) leidend voor het berekenen van het resterende budget.
@@ -94,7 +141,10 @@
 
   function channelFee(channelId, amount) {
     const rate = FS.state.fees[channelId] || 0;
-    return rate > 0 ? amount * (rate / (1 + rate)) : 0;
+    if (rate <= 0) return 0;
+    // 'excl' (media-budget): fee komt bovenop → fee = bedrag × rate.
+    // 'incl' (CTC-budget): fee zit erin → fee = bedrag × rate/(1+rate).
+    return feeMode() === 'excl' ? amount * rate : amount * (rate / (1 + rate));
   }
 
   function tacticFee(tactic) {
@@ -163,6 +213,10 @@
     campaignFlightSum,
     campaignBudget,
     grandTotal,
+    feeMode,
+    btwRate,
+    btwPctValue,
+    budgetBreakdown,
     flightEffective,
     campaignEffectiveSum,
     campaignEffective,

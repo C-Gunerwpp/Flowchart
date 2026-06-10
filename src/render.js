@@ -35,6 +35,47 @@
     return FS.constants.FUNNEL_STAGES.find((s) => s.id === stageId);
   }
 
+  /* ----- Merk-filter (sub-merken / geconsolideerde overzichten) -----
+   * Campagnes kunnen een `brand` dragen (bv. Audi, Porsche, Skoda binnen de
+   * Volkswagen-groep). Zodra er minstens één merk aanwezig is, schakelt de Gantt
+   * naar merk-gegroepeerde weergave met een merkfilter-balk. null = alles tonen.
+   */
+  let brandFilter = null;
+  /** Unieke merknamen in volgorde van eerste voorkomen. */
+  function getBrands() {
+    const seen = [];
+    FS.state.campaigns.forEach((c) => {
+      if (c.brand && !seen.includes(c.brand)) seen.push(c.brand);
+    });
+    return seen;
+  }
+  /** Vaste, onderscheidende kleur per merk (cyclisch over de palet-groepen). */
+  function brandColor(index) {
+    const groups = FS.constants.PALETTE_GROUPS;
+    const g = groups[index % groups.length];
+    return g.colors[0];
+  }
+  function brandKeys() {
+    const keys = getBrands();
+    if (FS.state.campaigns.some((c) => !c.brand)) keys.push('');
+    return keys;
+  }
+  function isBrandVisible(brand) {
+    if (!brandFilter) return true;
+    return brandFilter.has(brand || '');
+  }
+  function setBrandVisible(brand, on) {
+    const keys = brandKeys();
+    if (!brandFilter) brandFilter = new Set(keys);
+    if (on) brandFilter.add(brand || ''); else brandFilter.delete(brand || '');
+    if (keys.every((k) => brandFilter.has(k))) brandFilter = null;
+    render();
+  }
+  function setBrandAll(on) {
+    brandFilter = on ? null : new Set();
+    render();
+  }
+
   /** Eén bar in het Gantt-grid. */
   function barHTML(sd, ed, color, textColor, name, budget, status, dataAttrs, flags) {
     const rng = FS.viewport.dateColRange(sd, ed);
@@ -199,18 +240,41 @@
 
   function renderFooter() {
     const c = FS.calc;
-    const grand = c.grandTotal();
-    const spend = c.grandTotalActual();
-    const hasActuals = grand !== spend;
+    const bd = c.budgetBreakdown();
+    const hasActuals = FS.state.campaigns.some((cp) => (cp.segs || []).some((f) => f.actualized));
+    const isExcl = bd.mode === 'excl';
+    // Media, fee en CTC zijn actual-leidend en identiek aan de kaarten bovenin.
     const totCreatie = c.totalCreatieFlights() + c.calcCreatie();
     const totTooling = c.totalToolingFlights() + c.calcTooling();
-    // Resterend is actual-leidend, gelijk aan de kaart bovenaan.
-    const rest = FS.state.jaarTotal - spend - totCreatie - totTooling;
-    return `<div class="g-row g-foot g-tot"><div class="g-label">Totaal${hasActuals ? ' (actual)' : ''}</div><div class="g-budget">${esc(fC(spend))}</div><div class="g-bars"></div></div>`
-      + `<div class="g-row g-foot g-crea"><div class="g-label">🎨 Creatie</div><div class="g-budget">${esc(fC(totCreatie))}</div><div class="g-bars"></div></div>`
+    const rest = FS.state.jaarTotal - bd.ctc - totCreatie - totTooling;
+    const feeArrow = isExcl ? '➕' : '➖';
+    const feeNote = isExcl ? 'bovenop budget' : 'in budget verwerkt';
+    let html = `<div class="g-row g-foot g-media"><div class="g-label">Netto Media</div><div class="g-budget">${esc(fC(bd.media))}</div><div class="g-bars"></div></div>`
+      + `<div class="g-row g-foot g-fee"><div class="g-label">${feeArrow} Handling fee <span class="g-foot-note">${feeNote}</span></div><div class="g-budget">${esc(fC(bd.fee))}</div><div class="g-bars"></div></div>`
+      + `<div class="g-row g-foot g-tot"><div class="g-label">Totaal CTC</div><div class="g-budget">${esc(fC(bd.ctc))}</div><div class="g-bars"></div></div>`;
+    if (bd.btwIncluded) {
+      html += `<div class="g-row g-foot g-btw"><div class="g-label">Incl. ${esc(bd.btwPct)}% BTW</div><div class="g-budget">${esc(fC(bd.ctcInclBtw))}</div><div class="g-bars"></div></div>`;
+    }
+    html += `<div class="g-row g-foot g-crea"><div class="g-label">🎨 Creatie</div><div class="g-budget">${esc(fC(totCreatie))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-tool"><div class="g-label">🔧 Tooling</div><div class="g-budget">${esc(fC(totTooling))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-jaar"><div class="g-label">Jaarbudget</div><div class="g-budget">${esc(fC(FS.state.jaarTotal))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-rest${rest < 0 ? ' neg' : ''}"><div class="g-label">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="g-budget">${esc(fC(rest))}</div><div class="g-bars"></div></div>`;
+    return html;
+  }
+
+  /** Eén campagnerij plus (indien uitgeklapt) de bijbehorende flight- en
+   *  tactic-rijen. Gedeeld door zowel de standaard- als de merk-weergave. */
+  function renderCampWithChildren(c) {
+    let out = renderCampRow(c);
+    if (FS.state.expanded[c.id]) {
+      c.segs.forEach((f, fi) => {
+        out += renderFlightRow(c, f, fi);
+        if (FS.state.expandedFlight[`${c.id}_${fi}`] && f.tac) {
+          f.tac.forEach((t, ti) => { out += renderTacRow(c, f, fi, t, ti); });
+        }
+      });
+    }
+    return out;
   }
 
   function renderGantt() {
@@ -233,30 +297,48 @@
       // we dat een willekeurig gesorteerd JSON-bestand meerdere sectiekoppen
       // produceert tussen de campagnes door.
       const visible = camps.filter((c) => isFunnelVisible(c.funnel || ''));
-      const losseList = visible.filter((c) => (c.sec || 'losse') !== 'ao');
-      const aoList = visible.filter((c) => c.sec === 'ao');
-      const ordered = losseList.concat(aoList);
-      if (!ordered.length) {
-        html += `<div class="g-empty" style="padding:24px"><div class="g-empty-sub">Geen campagnes voldoen aan het funnel-filter. Pas het filter aan via de legenda onderaan.</div></div>`;
-      }
-      let lastSec = '';
-      ordered.forEach((c) => {
-        const secKey = c.sec === 'ao' ? 'ao' : 'losse';
-        if (secKey !== lastSec) {
-          lastSec = secKey;
-          html += `<div class="g-sec">${secKey === 'ao' ? 'ALWAYS-ON' : 'CAMPAGNES'}</div>`;
+      const brands = getBrands();
+      if (brands.length) {
+        // ---- Merk-modus: groepeer campagnes per (sub-)merk ----
+        const brandVisible = visible.filter((c) => isBrandVisible(c.brand || ''));
+        if (!brandVisible.length) {
+          html += `<div class="g-empty" style="padding:24px"><div class="g-empty-sub">Geen campagnes voldoen aan de huidige filters. Pas het merk- of funnelfilter aan.</div></div>`;
         }
-        html += renderCampRow(c);
-        if (FS.state.expanded[c.id]) {
-          c.segs.forEach((f, fi) => {
-            html += renderFlightRow(c, f, fi);
-            if (FS.state.expandedFlight[`${c.id}_${fi}`] && f.tac) {
-              f.tac.forEach((t, ti) => { html += renderTacRow(c, f, fi, t, ti); });
-            }
+        const groups = brands.slice();
+        if (camps.some((c) => !c.brand)) groups.push('');
+        groups.forEach((brand, bi) => {
+          const list = brandVisible.filter((c) => (c.brand || '') === brand);
+          if (!list.length) return;
+          const ordered = list.filter((c) => (c.sec || 'losse') !== 'ao')
+            .concat(list.filter((c) => c.sec === 'ao'));
+          const col = brandColor(bi);
+          html += `<div class="g-sec g-sec-brand"><span class="g-sec-dot" style="background:${a(col)}"></span>${esc(brand || 'Overig (geen merk)')}<span class="g-sec-cnt">${ordered.length}</span></div>`;
+          let subtotal = 0;
+          ordered.forEach((c) => {
+            html += renderCampWithChildren(c);
+            subtotal += FS.calc.campaignBudget(c);
           });
+          html += `<div class="g-row g-foot g-brandtot"><div class="g-label">Subtotaal ${esc(brand || 'Overig')}</div><div class="g-budget">${esc(fC(subtotal))}</div><div class="g-bars"></div></div>`;
+        });
+        html += renderFooter();
+      } else {
+        const losseList = visible.filter((c) => (c.sec || 'losse') !== 'ao');
+        const aoList = visible.filter((c) => c.sec === 'ao');
+        const ordered = losseList.concat(aoList);
+        if (!ordered.length) {
+          html += `<div class="g-empty" style="padding:24px"><div class="g-empty-sub">Geen campagnes voldoen aan het funnel-filter. Pas het filter aan via de legenda onderaan.</div></div>`;
         }
-      });
-      html += renderFooter();
+        let lastSec = '';
+        ordered.forEach((c) => {
+          const secKey = c.sec === 'ao' ? 'ao' : 'losse';
+          if (secKey !== lastSec) {
+            lastSec = secKey;
+            html += `<div class="g-sec">${secKey === 'ao' ? 'ALWAYS-ON' : 'CAMPAGNES'}</div>`;
+          }
+          html += renderCampWithChildren(c);
+        });
+        html += renderFooter();
+      }
     }
     document.getElementById('gantt').innerHTML = html;
     requestAnimationFrame(positionNowLine);
@@ -288,28 +370,49 @@
 
   function renderSummary() {
     const c = FS.calc;
-    const total = c.grandTotal();
-    const fee = c.totalFee();
-    const net = total - fee;
+    const bd = c.budgetBreakdown();
     const totCreatie = c.totalCreatieFlights() + c.calcCreatie();
     const totTooling = c.totalToolingFlights() + c.calcTooling();
-    // Resterend budget is gebaseerd op de werkelijke (actual-leidende) besteding:
-    // geactualiseerde flights tellen mee met hun werkelijk bestede budget.
-    const spend = c.grandTotalActual();
-    const rest = FS.state.jaarTotal - spend - totCreatie - totTooling;
+    // Alle totalen zijn actual-leidend (vallen terug op planning zonder actuals).
+    const rest = FS.state.jaarTotal - bd.ctc - totCreatie - totTooling;
     const hasActuals = FS.state.campaigns.some((cp) => (cp.segs || []).some((f) => f.actualized));
     const bj = FS.state.budgetJournal;
     const subtitle = bj.mods.length
       ? `Basis ${fC(bj.base)} + ${bj.mods.length} wijz.`
       : 'Klik voor journal';
+    const feeSub = bd.mode === 'excl' ? 'bovenop budget' : 'in budget verwerkt';
     document.getElementById('summaryBar').innerHTML =
       `<div class="scard s-click" id="scJ"><div class="sl">Jaarbudget</div><div class="sv">${esc(fC(FS.state.jaarTotal))}</div><div class="sd">${esc(subtitle)}</div></div>`
-      + `<div class="scard s-media"><div class="sl">Netto Media</div><div class="sv">${esc(fC(net))}</div></div>`
-      + `<div class="scard s-fee"><div class="sl">Handling Fee</div><div class="sv">${esc(fC(fee))}</div></div>`
+      + `<div class="scard s-media"><div class="sl">Netto Media</div><div class="sv">${esc(fC(bd.media))}</div></div>`
+      + `<div class="scard s-fee s-click" id="scFee" title="Handling fee — klik voor instellingen"><div class="sl">Handling Fee</div><div class="sv">${esc(fC(bd.fee))}</div><div class="sd">${esc(feeSub)}</div></div>`
       + `<div class="scard s-crea s-click" id="scC"><div class="sl">Creatie</div><div class="sv">${esc(fC(totCreatie))}</div></div>`
       + `<div class="scard s-tool s-click" id="scT"><div class="sl">Tooling</div><div class="sv">${esc(fC(totTooling))}</div></div>`
       + `<div class="scard s-rest"><div class="sl">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="sv" style="color:${rest < 0 ? '#DC2626' : '#059669'}">${esc(fC(rest))}</div></div>`
       + `<div class="scard s-add" id="addCampBtn">+ Campagne</div>`;
+  }
+
+  /** Merkfilter-balk boven de Gantt. Alleen zichtbaar in merk-modus (≥1 merk). */
+  function renderBrandBar() {
+    const bar = document.getElementById('brandBar');
+    if (!bar) return;
+    const brands = getBrands();
+    if (!brands.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+    bar.style.display = '';
+    const hasBrandless = FS.state.campaigns.some((c) => !c.brand);
+    let html = `<span class="leg-lbl">🏢 MERKEN:</span>`;
+    const all = !brandFilter;
+    html += `<button class="g-brand-pill${all ? ' on' : ''}" data-brand="__all" title="Alle merken tonen">Alle</button>`;
+    brands.forEach((b, i) => {
+      const on = isBrandVisible(b);
+      const col = brandColor(i);
+      html += `<button class="g-brand-pill${on ? ' on' : ''}" data-brand="${a(b)}" style="${on ? `background:${a(col)};color:#fff;border-color:${a(col)}` : ''}" title="${a(b)}">`
+        + `${on ? '' : `<span class="g-brand-dot" style="background:${a(col)}"></span>`}${esc(b)}</button>`;
+    });
+    if (hasBrandless) {
+      const on = isBrandVisible('');
+      html += `<button class="g-brand-pill${on ? ' on' : ''}" data-brand="" title="Campagnes zonder merk">— Geen merk —</button>`;
+    }
+    bar.innerHTML = html;
   }
 
   function renderFunnelBar() {
@@ -345,6 +448,7 @@
   function render() {
     renderGantt();
     renderSummary();
+    renderBrandBar();
     renderFunnelBar();
     renderLegend();
     if (FS._refreshRangeUI) FS._refreshRangeUI();
@@ -374,6 +478,7 @@
       + '</div>';
   }
 
-  FS.render = { render, renderGantt, renderSummary, renderLegend, renderFunnelBar, barHTML, palHTML, positionNowLine,
-    setFunnelStage, setFunnelAll, isFunnelVisible, funnelStageInfo };
+  FS.render = { render, renderGantt, renderSummary, renderLegend, renderFunnelBar, renderBrandBar, barHTML, palHTML, positionNowLine,
+    setFunnelStage, setFunnelAll, isFunnelVisible, funnelStageInfo,
+    getBrands, brandColor, isBrandVisible, setBrandVisible, setBrandAll };
 })(window.FS = window.FS || {});

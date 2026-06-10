@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Flowchart Studio</title>
-  <link rel="stylesheet" href="styles.css?v=20" />
+  <link rel="stylesheet" href="styles.css?v=23" />
 </head>
 <body>
 <div class="ttip" id="ttip" role="tooltip" aria-hidden="true"></div>
@@ -40,6 +40,7 @@
       <button class="tb-btn" id="btnToday" title="Spring naar de huidige week">&#128197; Vandaag</button>
       <button class="tb-btn ins" id="btnIns" title="Inzichten">&#128202; Inzichten</button>
       <button class="tb-btn ins" id="btnCollab" title="Versie-historie">&#128451; Versies</button>
+      <button class="tb-btn ins" id="btnMerge" title="Merken samenvoegen tot één geconsolideerd overzicht">&#127970; Merge</button>
       <button class="tb-btn save" id="btnSave">&#128190; Opslaan</button>
       <button class="tb-btn load" id="btnLoad">&#128194; Laden</button>
       <div class="tb-menu" id="tbExport">
@@ -55,6 +56,7 @@
     </div>
   </div>
   <div class="summary" id="summaryBar"></div>
+  <div class="brand-bar" id="brandBar" style="display:none"></div>
   <div class="funnel-bar" id="funnelBar"></div>
   <div class="gantt-wrap" id="ganttWrap"><div class="gantt" id="gantt"></div></div>
   <div class="legend" id="legend"></div>
@@ -63,21 +65,23 @@
 <div class="modal-bg" id="settBg"><div class="modal wide"><div class="modal-head"><div class="modal-nav"><strong>&#9881;&#65039; Settings</strong></div><button class="modal-close" id="settClose">&#10005;</button></div><div class="modal-body" id="settBody"></div></div></div>
 <div class="modal-bg" id="cfmBg"><div class="cfm-box"><div class="cfm-icon" id="cfmIcon"></div><div class="cfm-msg" id="cfmMsg"></div><div class="cfm-btns"><button class="mbtn" id="cfmNo">Annuleer</button><button class="mbtn pri" id="cfmYes">Akkoord</button></div></div></div>
 <div class="modal-bg" id="insBg"><div class="modal ins-modal"><div class="modal-head"><div class="modal-nav"><strong>&#128202; Inzichten &amp; rapportage</strong></div><button class="modal-close" id="insClose">&#10005;</button></div><div class="modal-body" id="insBody"></div></div></div>
+<div class="modal-bg" id="mergeBg"><div class="modal"><div class="modal-head"><div class="modal-nav"><strong>&#127970; Merken samenvoegen</strong></div><button class="modal-close" id="mergeClose">&#10005;</button></div><div class="modal-body" id="mergeBody"></div></div></div>
 <div class="toast-wrap" id="toastWrap"></div>
-<script src="src/constants.js?v=20" defer></script>
-<script src="src/state.js?v=20" defer></script>
-<script src="src/utils.js?v=20" defer></script>
-<script src="src/viewport.js?v=20" defer></script>
-<script src="src/toast.js?v=20" defer></script>
-<script src="src/calc.js?v=20" defer></script>
-<script src="src/render.js?v=20" defer></script>
-<script src="src/modals.js?v=20" defer></script>
-<script src="src/insights.js?v=20" defer></script>
-<script src="src/history.js?v=20" defer></script>
-<script src="src/gantt-interact.js?v=20" defer></script>
-<script src="src/collab.js?v=20" defer></script>
-<script src="src/locks.js?v=20" defer></script>
-<script src="src/io.js?v=20" defer></script>
-<script src="src/events.js?v=20" defer></script>
+<script src="src/constants.js?v=23" defer></script>
+<script src="src/state.js?v=23" defer></script>
+<script src="src/utils.js?v=23" defer></script>
+<script src="src/viewport.js?v=23" defer></script>
+<script src="src/toast.js?v=23" defer></script>
+<script src="src/calc.js?v=23" defer></script>
+<script src="src/render.js?v=23" defer></script>
+<script src="src/modals.js?v=23" defer></script>
+<script src="src/insights.js?v=23" defer></script>
+<script src="src/history.js?v=23" defer></script>
+<script src="src/gantt-interact.js?v=23" defer></script>
+<script src="src/collab.js?v=23" defer></script>
+<script src="src/locks.js?v=23" defer></script>
+<script src="src/io.js?v=23" defer></script>
+<script src="src/merge.js?v=23" defer></script>
+<script src="src/events.js?v=23" defer></script>
 </body>
 </html>

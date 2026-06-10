@@ -486,7 +486,36 @@
       + `<div class="tg-sw${notifyOn ? ' on' : ''}" id="sjNotifyAct" role="switch" aria-checked="${notifyOn}" tabindex="0"></div>`
       + `</div></div></section>`;
 
+    // -- Communicatie naar klant (incl./excl. CTC + BTW) --
+    h += renderCommSection();
+
     document.getElementById('settBody').innerHTML = h;
+  }
+
+  /** Communicatie-instellingen: bepaalt of de handling fee IN de budgetten zit
+   *  (CTC, fee eraf) of er bovenop komt (media-budget, fee erbij), plus optioneel
+   *  BTW. Verschilt per klant en bepaalt hoe het budget over alle campagnes en
+   *  flights wordt weergegeven. */
+  function renderCommSection() {
+    const comm = (FS.state.settings && FS.state.settings.comm) || {};
+    const bd = FS.calc.budgetBreakdown();
+    const btwVal = Number.isFinite(comm.btwPct) ? comm.btwPct : 21;
+    const isExcl = bd.mode === 'excl';
+    return `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-cm">🧾</span><h4>Communicatie naar klant</h4>`
+      + `<span class="ss-hint">Bepaalt of de handling fee in of bovenop het budget valt</span></div><div class="ss-body">`
+      + `<label class="ss-check"><input type="checkbox" class="ss-cb" id="cmInclCtc"${comm.inclCtc ? ' checked' : ''}>`
+      + `<span class="ss-check-tx">Incl. CTC-budget <em>(budget is cost-to-client — handling fee wordt eraf gehaald)</em></span></label>`
+      + `<label class="ss-check"><input type="checkbox" class="ss-cb" id="cmExclCtc"${comm.exclCtc ? ' checked' : ''}>`
+      + `<span class="ss-check-tx">Excl. CTC-budget <em>(budget is netto media — handling fee komt erbovenop)</em></span></label>`
+      + `<div class="ss-check"><label class="ss-check-main"><input type="checkbox" class="ss-cb" id="cmInclBtw"${comm.inclBtw ? ' checked' : ''}>`
+      + `<span class="ss-check-tx">Incl. BTW</span></label>`
+      + `<span class="ss-check-pct"><input type="number" id="cmBtwPct" value="${a(btwVal)}" min="0" max="100" step="any"><span class="fi-suf">%</span></span></div>`
+      + `<div class="ss-comm-prev">`
+      + `<div class="ss-comm-line"><span>Netto media</span><strong>${esc(fC(bd.media))}</strong></div>`
+      + `<div class="ss-comm-line"><span>${isExcl ? '➕' : '➖'} Handling fee</span><strong>${esc(fC(bd.fee))}</strong></div>`
+      + `<div class="ss-comm-line ss-comm-tot"><span>Totaal CTC${bd.btwIncluded ? ` (incl. ${esc(bd.btwPct)}% BTW)` : ''}</span><strong>${esc(fC(bd.btwIncluded ? bd.ctcInclBtw : bd.ctc))}</strong></div>`
+      + `</div>`
+      + `</div></section>`;
   }
 
   function journalRow(journalKey, index, mod, step) {

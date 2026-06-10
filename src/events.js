@@ -150,6 +150,7 @@
     document.getElementById('btnRedo').addEventListener('click', () => FS.history && FS.history.redo());
     document.getElementById('btnIns').addEventListener('click', () => FS.insights && FS.insights.open());
     document.getElementById('btnCollab').addEventListener('click', () => FS.collab && FS.collab.open());
+    document.getElementById('btnMerge').addEventListener('click', () => FS.merge && FS.merge.openModal());
     document.getElementById('btnZoomIn').addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.zoomIn());
     document.getElementById('btnZoomOut').addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.zoomOut());
     document.getElementById('zoomVal').addEventListener('click', () => FS.ganttInteract && FS.ganttInteract.zoomReset());
@@ -235,6 +236,22 @@
         }
         const on = FS.render.isFunnelVisible(fs);
         FS.render.setFunnelStage(fs, !on);
+      });
+    }
+
+    /* Merk-balk (boven de gantt): merkfilter-pillen voor geconsolideerde overzichten */
+    const brandBarEl = document.getElementById('brandBar');
+    if (brandBarEl) {
+      brandBarEl.addEventListener('click', (e) => {
+        const pill = e.target.closest('.g-brand-pill');
+        if (!pill) return;
+        const brand = pill.dataset.brand;
+        if (brand === '__all') {
+          FS.render.setBrandAll(true);
+          return;
+        }
+        const on = FS.render.isBrandVisible(brand);
+        FS.render.setBrandVisible(brand, !on);
       });
     }
 
@@ -369,6 +386,9 @@
     bindBackdropClose('modalBg', FS.modals.closeModal);
     document.getElementById('settClose').addEventListener('click', FS.modals.closeSett);
     bindBackdropClose('settBg', FS.modals.closeSett);
+    const mergeCloseBtn = document.getElementById('mergeClose');
+    if (mergeCloseBtn) mergeCloseBtn.addEventListener('click', () => FS.merge && FS.merge.closeModal());
+    bindBackdropClose('mergeBg', () => FS.merge && FS.merge.closeModal());
     document.getElementById('modalNav').addEventListener('click', (e) => {
       if (!e.target.closest('.mnav-back')) return;
       const ci = findCampaignIndex(FS.state.selectedCamp);
@@ -697,6 +717,11 @@
       if (key === 'tj') return FS.state.toolingJournal;
       return null;
     }
+    function ensureComm() {
+      if (!FS.state.settings) FS.state.settings = FS.state.defaultSettings();
+      if (!FS.state.settings.comm) FS.state.settings.comm = FS.state.defaultSettings().comm;
+      return FS.state.settings.comm;
+    }
     function afterSettChange() {
       FS.calc.calcJaar();
       FS.modals.renderSettings();
@@ -734,6 +759,32 @@
         else FS.state.fees[ch] = v / 100;
         afterSettChange();
         warnFeeChange(ch);
+      }
+
+      /* ----- Communicatie naar klant (incl./excl. CTC + BTW) ----- */
+      const comm = ensureComm();
+      if (el.id === 'cmInclCtc') {
+        comm.inclCtc = el.checked;
+        if (el.checked) comm.exclCtc = false; // wederzijds uitsluitend
+        afterSettChange();
+        return;
+      }
+      if (el.id === 'cmExclCtc') {
+        comm.exclCtc = el.checked;
+        if (el.checked) comm.inclCtc = false; // wederzijds uitsluitend
+        afterSettChange();
+        return;
+      }
+      if (el.id === 'cmInclBtw') {
+        comm.inclBtw = el.checked;
+        afterSettChange();
+        return;
+      }
+      if (el.id === 'cmBtwPct') {
+        const v = parseFloat(el.value);
+        comm.btwPct = (isNaN(v) || v < 0) ? 0 : v;
+        afterSettChange();
+        return;
       }
     });
 
@@ -788,7 +839,7 @@
         FS.modals.showCampModal(findCampaignIndex(newCamp.id));
         return;
       }
-      if (card.id === 'scJ' || card.id === 'scC' || card.id === 'scT') FS.modals.openSett();
+      if (card.id === 'scJ' || card.id === 'scC' || card.id === 'scT' || card.id === 'scFee') FS.modals.openSett();
     });
 
     /* ----- Empty-state knoppen ----- */
@@ -888,6 +939,10 @@
       }
       if (document.getElementById('insBg').classList.contains('open')) {
         FS.insights.close();
+        return;
+      }
+      if (FS.merge && FS.merge.isOpen && FS.merge.isOpen()) {
+        FS.merge.closeModal();
         return;
       }
       if (document.getElementById('settBg').classList.contains('open')) {
