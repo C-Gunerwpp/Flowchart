@@ -8,50 +8,70 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Flowchart Studio</title>
-  <link rel="stylesheet" href="styles.css?v=23" />
+  <link rel="icon" type="image/svg+xml" href="assets/logo-icon.svg?v=29" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('fs-theme');
+        if (t !== 'light' && t !== 'dark') t = 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="styles.css?v=29" />
 </head>
 <body>
 <div class="ttip" id="ttip" role="tooltip" aria-hidden="true"></div>
 <input type="file" id="FI" accept=".json" style="display:none" aria-hidden="true">
-<div id="W"><span style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:6px 16px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:24px;display:inline-block">WPP MEDIA</span><h1 class="wtt">Flowchart Studio</h1><p class="wt2">Campagne &#8594; Flight &#8594; Tactic</p><div class="wa"><button class="wbtn wbl" id="wl">&#128194; JSON laden</button><button class="wbtn wbn" id="wn">&#10024; Nieuw</button></div><div class="wdr" id="wd"><div style="font-size:36px;margin-bottom:6px">&#128196;</div><p style="font-size:11px;color:rgba(255,255,255,.5)">Of <b style="color:rgba(255,255,255,.8)">sleep een .json</b> hierheen</p></div><button class="wre" id="wr">&#128260; Vorige sessie</button><div id="recentList" class="recent-list" style="display:none"></div></div>
+<div id="W"><img class="w-logo" src="assets/logo-dark.svg?v=29" alt="Flowchart Studio" style="width:86px;height:86px;margin-bottom:20px"><span style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);padding:6px 16px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:2px;margin-bottom:24px;display:inline-block">WPP MEDIA</span><h1 class="wtt">Flowchart Studio</h1><div class="wa"><button class="wbtn wbl" id="wl" title="Laad een eerder opgeslagen plan">&#128194; Laden<span class="winfo" title="Je laadt een eerder opgeslagen .json-bestand" aria-label="Alleen .json-bestanden">i</span></button><button class="wbtn wbn" id="wn">&#10024; Nieuw</button></div><div class="wdr" id="wd"><div style="font-size:36px;margin-bottom:6px">&#128196;</div><p style="font-size:11px;color:rgba(255,255,255,.5)">Of <b style="color:rgba(255,255,255,.8)">sleep een .json</b> hierheen</p></div><button class="wre" id="wr">&#128260; Vorige sessie</button><div id="recentList" class="recent-list" style="display:none"></div></div>
 <div class="drop-overlay" id="dropOverlay"><div class="drop-overlay-inner">📂 Laat los om dit plan te openen</div></div>
 <div id="A">
   <div class="topbar">
     <div class="tb-left">
-      <div style="display:flex;align-items:center"><h1>Flowchart Studio</h1><span class="badge">v13</span></div>
+      <div class="tb-brand">
+        <span class="tb-logo" aria-hidden="true"><svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><line x1="26" y1="22" x2="26" y2="78"/><line x1="49" y1="22" x2="49" y2="78"/><line x1="72" y1="22" x2="72" y2="62"/><path d="M72 50 H86 V64"/></g><rect x="33" y="26.5" width="35" height="11" rx="5.5" fill="#84CB4C"/><rect x="26" y="44.5" width="54" height="11" rx="5.5" fill="#71D0E6"/><rect x="33" y="62.5" width="29" height="11" rx="5.5" fill="#9DD64C"/><rect x="79.6" y="67.6" width="12.8" height="12.8" rx="2.4" transform="rotate(45 86 74)" fill="#84CB4C"/></svg></span>
+        <div class="tb-titles"><h1>Flowchart Studio</h1><span class="badge">v14</span></div>
+      </div>
+      <span class="active-file-pill" id="activeFilePill" style="display:none" title="Actief bestand"></span>
       <div class="tb-client"><span class="tb-client-label">Klant</span><input id="clientIn" type="text" placeholder="Klantnaam..." value=""></div>
     </div>
     <div class="tb-right">
-      <input class="tb-in tb-yr" id="yearIn" type="number" value="2026" min="2020" max="2035" title="Jaar">
-      <span class="active-file-pill" id="activeFilePill" style="display:none" title="Actief bestand"></span>
-      <button class="user-pill" id="userPill" title="Klik om je naam in te stellen of te wijzigen — deze naam wordt vastgelegd in elk plan dat je opslaat">✏️ Naam instellen</button>
-      <button class="tb-btn" id="btnUndo" title="Ongedaan maken (Ctrl+Z)" disabled>&#8630;</button>
-      <button class="tb-btn" id="btnRedo" title="Opnieuw (Ctrl+Y)" disabled>&#8631;</button>
-      <span class="tb-range" id="ganttRange" title="Zichtbare periode in de Gantt">
-        <button class="tb-btn" id="btnPanPrev" title="Eén maand terug">&#9664;</button>
-        <span class="tb-range-lbl" id="ganttRangeLbl" title="Klik om naar vandaag te springen">–</span>
-        <button class="tb-btn" id="btnPanNext" title="Eén maand vooruit">&#9654;</button>
-        <input class="tb-in" id="monthCountIn" type="number" min="3" max="24" step="1" value="12" title="Aantal zichtbare maanden (3–24)" style="width:54px">
-        <span class="tb-range-suf">mnd</span>
-      </span>
-      <button class="tb-btn" id="btnZoomOut" title="Zoom uit">&#128269;&#8722;</button>
-      <span class="tb-zv" id="zoomVal" title="Zoom (klik om te resetten)">100%</span>
-      <button class="tb-btn" id="btnZoomIn" title="Zoom in">&#128269;&#43;</button>
-      <button class="tb-btn" id="btnToday" title="Spring naar de huidige week">&#128197; Vandaag</button>
-      <button class="tb-btn ins" id="btnIns" title="Inzichten">&#128202; Inzichten</button>
-      <button class="tb-btn ins" id="btnCollab" title="Versie-historie">&#128451; Versies</button>
-      <button class="tb-btn ins" id="btnMerge" title="Merken samenvoegen tot één geconsolideerd overzicht">&#127970; Merge</button>
-      <button class="tb-btn save" id="btnSave">&#128190; Opslaan</button>
-      <button class="tb-btn load" id="btnLoad">&#128194; Laden</button>
-      <div class="tb-menu" id="tbExport">
-        <button class="tb-btn" id="btnExport" title="Exporteer naar CSV, XLS of PDF" aria-haspopup="true" aria-expanded="false">&#11015;&#65039; Export &#9662;</button>
-        <div class="tb-menu-list" role="menu">
-          <button class="tb-menu-item" data-act="csv" role="menuitem">CSV bestand</button>
-          <button class="tb-menu-item" data-act="xls" role="menuitem">XLS bestand</button>
-          <button class="tb-menu-item" data-act="pdf" role="menuitem">PDF (print)</button>
+      <button class="tb-icon" id="btnUndo" title="Ongedaan maken (Ctrl+Z)" disabled>&#8630;</button>
+      <button class="tb-icon" id="btnRedo" title="Opnieuw (Ctrl+Y)" disabled>&#8631;</button>
+      <span class="tb-sep"></span>
+      <div class="tb-pop" id="viewPop">
+        <button class="tb-icon" id="btnView" title="Weergave: zoom, periode en jaar" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg></button>
+        <div class="tb-pop-panel">
+          <div class="tb-pop-row"><span class="tb-pop-lbl">Jaar</span><input class="tb-in tb-yr" id="yearIn" type="number" value="2026" min="2020" max="2035" title="Jaar"></div>
+          <div class="tb-pop-row"><span class="tb-pop-lbl">Periode</span><span class="tb-range" id="ganttRange" title="Zichtbare periode in de Gantt"><button class="tb-btn" id="btnPanPrev" title="Eén maand terug">&#9664;</button><span class="tb-range-lbl" id="ganttRangeLbl" title="Klik om naar vandaag te springen">–</span><button class="tb-btn" id="btnPanNext" title="Eén maand vooruit">&#9654;</button><input class="tb-in" id="monthCountIn" type="number" min="3" max="24" step="1" value="12" title="Aantal zichtbare maanden (3–24)" style="width:54px"><span class="tb-range-suf">mnd</span></span></div>
+          <div class="tb-pop-row"><span class="tb-pop-lbl">Zoom</span><span style="display:flex;align-items:center;gap:6px"><button class="tb-btn" id="btnZoomOut" title="Zoom uit">&#128269;&#8722;</button><span class="tb-zv" id="zoomVal" title="Zoom (klik om te resetten)">100%</span><button class="tb-btn" id="btnZoomIn" title="Zoom in">&#128269;&#43;</button></span></div>
+          <div class="tb-pop-row"><span class="tb-pop-lbl">Navigatie</span><button class="tb-btn" id="btnToday" title="Spring naar de huidige week">&#128197; Vandaag</button></div>
         </div>
       </div>
-      <button class="tb-btn" id="btnSett">&#9881;&#65039;</button>
+      <button class="tb-icon" id="btnFilters" title="Filters tonen/verbergen (funnel &amp; merken)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg></button>
+      <button class="tb-icon tb-theme" id="btnTheme" title="Licht/donker wisselen"><svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.5M12 19v2.5M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.5M19 12h2.5M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"/></svg><svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4 7 7 0 1 0 20 14.5z"/></svg></button>
+      <div class="tb-menu" id="tbMore">
+        <button class="tb-icon" id="btnMore" title="Meer acties" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+        <div class="tb-menu-list" role="menu">
+          <button class="tb-menu-item with-ic" id="btnIns" role="menuitem"><span class="mi-ic">&#128202;</span>Inzichten</button>
+          <button class="tb-menu-item with-ic" id="btnCollab" role="menuitem"><span class="mi-ic">&#128451;</span>Versies</button>
+          <button class="tb-menu-item with-ic" id="btnMerge" role="menuitem"><span class="mi-ic">&#127970;</span>Merken samenvoegen</button>
+          <div class="tb-menu-sep"></div>
+          <div class="tb-menu-sub">Exporteren</div>
+          <button class="tb-menu-item with-ic" data-act="csv" role="menuitem"><span class="mi-ic">&#128196;</span>CSV bestand</button>
+          <button class="tb-menu-item with-ic" data-act="xls" role="menuitem"><span class="mi-ic">&#128200;</span>XLS bestand</button>
+          <button class="tb-menu-item with-ic" data-act="pdf" role="menuitem"><span class="mi-ic">&#128424;</span>PDF (print)</button>
+          <div class="tb-menu-sep"></div>
+          <button class="tb-menu-item with-ic" id="btnLoad" role="menuitem"><span class="mi-ic">&#128194;</span>Laden…</button>
+          <button class="tb-menu-item with-ic" id="btnSett" role="menuitem"><span class="mi-ic">&#9881;&#65039;</span>Instellingen</button>
+        </div>
+      </div>
+      <span class="tb-sep"></span>
+      <button class="user-pill" id="userPill" title="Klik om je naam in te stellen of te wijzigen — deze naam wordt vastgelegd in elk plan dat je opslaat">&#9999;&#65039; Naam</button>
+      <button class="tb-btn save" id="btnSave">&#128190; Opslaan</button>
+      <button class="tb-cta" id="btnNewCampTop" title="Nieuwe campagne toevoegen">+ Nieuwe campagne</button>
       <span class="tb-status" id="autoSaveStatus">&#8211;</span>
     </div>
   </div>
@@ -67,21 +87,21 @@
 <div class="modal-bg" id="insBg"><div class="modal ins-modal"><div class="modal-head"><div class="modal-nav"><strong>&#128202; Inzichten &amp; rapportage</strong></div><button class="modal-close" id="insClose">&#10005;</button></div><div class="modal-body" id="insBody"></div></div></div>
 <div class="modal-bg" id="mergeBg"><div class="modal"><div class="modal-head"><div class="modal-nav"><strong>&#127970; Merken samenvoegen</strong></div><button class="modal-close" id="mergeClose">&#10005;</button></div><div class="modal-body" id="mergeBody"></div></div></div>
 <div class="toast-wrap" id="toastWrap"></div>
-<script src="src/constants.js?v=23" defer></script>
-<script src="src/state.js?v=23" defer></script>
-<script src="src/utils.js?v=23" defer></script>
-<script src="src/viewport.js?v=23" defer></script>
-<script src="src/toast.js?v=23" defer></script>
-<script src="src/calc.js?v=23" defer></script>
-<script src="src/render.js?v=23" defer></script>
-<script src="src/modals.js?v=23" defer></script>
-<script src="src/insights.js?v=23" defer></script>
-<script src="src/history.js?v=23" defer></script>
-<script src="src/gantt-interact.js?v=23" defer></script>
-<script src="src/collab.js?v=23" defer></script>
-<script src="src/locks.js?v=23" defer></script>
-<script src="src/io.js?v=23" defer></script>
-<script src="src/merge.js?v=23" defer></script>
-<script src="src/events.js?v=23" defer></script>
+<script src="src/constants.js?v=29" defer></script>
+<script src="src/state.js?v=29" defer></script>
+<script src="src/utils.js?v=29" defer></script>
+<script src="src/viewport.js?v=29" defer></script>
+<script src="src/toast.js?v=29" defer></script>
+<script src="src/calc.js?v=29" defer></script>
+<script src="src/render.js?v=29" defer></script>
+<script src="src/modals.js?v=29" defer></script>
+<script src="src/insights.js?v=29" defer></script>
+<script src="src/history.js?v=29" defer></script>
+<script src="src/gantt-interact.js?v=29" defer></script>
+<script src="src/collab.js?v=29" defer></script>
+<script src="src/locks.js?v=29" defer></script>
+<script src="src/io.js?v=29" defer></script>
+<script src="src/merge.js?v=29" defer></script>
+<script src="src/events.js?v=29" defer></script>
 </body>
 </html>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Flowchart Studio">
+  <g stroke="#E7ECF8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <line x1="26" y1="22" x2="26" y2="78"/>
+    <line x1="49" y1="22" x2="49" y2="78"/>
+    <line x1="72" y1="22" x2="72" y2="62"/>
+    <path d="M72 50 H86 V64"/>
+  </g>
+  <rect x="33" y="26.5" width="35" height="11" rx="5.5" fill="#84CB4C"/>
+  <rect x="26" y="44.5" width="54" height="11" rx="5.5" fill="#71D0E6"/>
+  <rect x="33" y="62.5" width="29" height="11" rx="5.5" fill="#9DD64C"/>
+  <rect x="79.6" y="67.6" width="12.8" height="12.8" rx="2.4" transform="rotate(45 86 74)" fill="#84CB4C"/>
+</svg>

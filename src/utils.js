@@ -138,6 +138,26 @@
 
   /** Normaliseert oudere data-formats naar het huidige schema. */
   function normalize(campaigns) {
+    // Zorg dat elke campagne een uniek, numeriek id heeft. Bestanden zonder
+    // `nextId` (of met dubbele/ontbrekende ids) zouden anders een nieuwe
+    // campagne hetzelfde id kunnen geven als een bestaande, waardoor je de
+    // verkeerde verwijdert. We dedupliceren hier en schuiven nextId voorbij
+    // het hoogste gebruikte id.
+    const usedIds = new Set();
+    let maxId = 99;
+    campaigns.forEach((camp) => {
+      let id = Number(camp.id);
+      if (!Number.isFinite(id) || usedIds.has(id)) {
+        do { maxId += 1; } while (usedIds.has(maxId));
+        id = maxId;
+      }
+      camp.id = id;
+      usedIds.add(id);
+      if (id > maxId) maxId = id;
+    });
+    if (FS.state) {
+      FS.state.nextId = Math.max(Number(FS.state.nextId) || 100, maxId + 1);
+    }
     campaigns.forEach((camp) => {
       if (camp.budget == null) camp.budget = 0;
       (camp.segs || []).forEach((f) => {

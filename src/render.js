@@ -91,10 +91,22 @@
     }
     const stc = statusColor(status);
     const span = rng.eCol - rng.sCol;
+    // Budget altijd tonen wanneer aanwezig (ook op smalle balkjes). Naam komt
+    // erbij zodra er genoeg ruimte is; zonder budget valt de balk terug op de
+    // naam. Zo is een balk vrijwel nooit leeg.
+    const budgetTxt = budget ? fK(budget) : '';
+    let inner;
+    if (name && span >= 4) {
+      inner = `<span class="bn">${esc(name)}</span>`
+        + (budgetTxt ? `<span class="bb">${esc(budgetTxt)}</span>` : '');
+    } else if (budgetTxt) {
+      inner = `<span class="bb">${esc(budgetTxt)}</span>`;
+    } else {
+      inner = name ? `<span class="bn">${esc(name)}</span>` : '';
+    }
     return (
       `<div class="g-bar${extraCls}" style="grid-column:${rng.sCol}/${rng.eCol};background:${a(col)};color:${a(tc)}"${dataAttrs}>`
-      + (name && span >= 3 ? `<span class="bn">${esc(name)}</span>` : '')
-      + (budget && span >= 4 ? `<span class="bb">${esc(fK(budget))}</span>` : '')
+      + inner
       + (stc ? `<div class="g-st" style="background:${a(stc)}"></div>` : '')
       + (f.needAct ? `<span class="g-bar-warn" title="Wacht op actualisatie">!</span>` : '')
       + '</div>'
@@ -284,11 +296,10 @@
       html += `<div class="g-empty">`
         + `<div class="g-empty-ico">📋</div>`
         + `<div class="g-empty-h">Nog geen campagnes</div>`
-        + `<div class="g-empty-sub">Begin met een nieuwe campagne, laad een eerder opgeslagen JSON of gebruik een template.</div>`
+        + `<div class="g-empty-sub">Begin met een nieuwe campagne of laad een eerder opgeslagen JSON.</div>`
         + `<div class="g-empty-act">`
-        + `<button class="mbtn pri" id="empAdd">+ Nieuwe campagne</button>`
+        + `<button class="g-empty-cta" id="empAdd">+ Nieuwe campagne</button>`
         + `<button class="mbtn" id="empLoad">📂 Laad JSON</button>`
-        + `<button class="mbtn" id="empTpl">📋 Gebruik template</button>`
         + `</div>`
         + `<div class="g-empty-kb"><kbd>Ctrl</kbd>+<kbd>N</kbd> nieuwe campagne · <kbd>Ctrl</kbd>+<kbd>S</kbd> opslaan · <kbd>?</kbd> sneltoetsen</div>`
         + `</div>`;
@@ -387,8 +398,7 @@
       + `<div class="scard s-fee s-click" id="scFee" title="Handling fee — klik voor instellingen"><div class="sl">Handling Fee</div><div class="sv">${esc(fC(bd.fee))}</div><div class="sd">${esc(feeSub)}</div></div>`
       + `<div class="scard s-crea s-click" id="scC"><div class="sl">Creatie</div><div class="sv">${esc(fC(totCreatie))}</div></div>`
       + `<div class="scard s-tool s-click" id="scT"><div class="sl">Tooling</div><div class="sv">${esc(fC(totTooling))}</div></div>`
-      + `<div class="scard s-rest"><div class="sl">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="sv" style="color:${rest < 0 ? '#DC2626' : '#059669'}">${esc(fC(rest))}</div></div>`
-      + `<div class="scard s-add" id="addCampBtn">+ Campagne</div>`;
+      + `<div class="scard s-rest"><div class="sl">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="sv" style="color:${rest < 0 ? '#DC2626' : '#059669'}">${esc(fC(rest))}</div></div>`;
   }
 
   /** Merkfilter-balk boven de Gantt. Alleen zichtbaar in merk-modus (≥1 merk). */
@@ -399,7 +409,7 @@
     if (!brands.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
     bar.style.display = '';
     const hasBrandless = FS.state.campaigns.some((c) => !c.brand);
-    let html = `<span class="leg-lbl">🏢 MERKEN:</span>`;
+    let html = `<span class="leg-lbl">Merken</span>`;
     const all = !brandFilter;
     html += `<button class="g-brand-pill${all ? ' on' : ''}" data-brand="__all" title="Alle merken tonen">Alle</button>`;
     brands.forEach((b, i) => {
@@ -418,17 +428,17 @@
   function renderFunnelBar() {
     const bar = document.getElementById('funnelBar');
     if (!bar) return;
-    let html = `<span class="leg-lbl">🪜 FUNNEL FILTER:</span>`;
+    let html = `<span class="leg-lbl">Funnel</span>`;
     const all = !funnelFilter;
-    html += `<button class="g-funnel-pill${all ? ' on' : ''}" data-fs="__all" title="Alle fases tonen">Alle</button>`;
+    html += `<button class="g-funnel-pill g-funnel-all${all ? ' on' : ''}" data-fs="__all" title="Alle fases tonen">Alle</button>`;
     FS.constants.FUNNEL_STAGES.forEach((st) => {
       const on = isFunnelVisible(st.id);
-      html += `<button class="g-funnel-pill${on ? ' on' : ''}" data-fs="${a(st.id)}" style="${on ? `background:${a(st.color)};color:#fff;border-color:${a(st.color)}` : ''}" title="${a(st.name)}">${a(st.icon)} ${esc(st.name)}</button>`;
+      html += `<button class="g-funnel-pill${on ? '' : ' off'}" data-fs="${a(st.id)}" title="${a(st.name)}"><span class="g-fn-dot" style="background:${a(st.color)}"></span>${esc(st.name)}</button>`;
     });
     const noneOn = isFunnelVisible('');
-    html += `<button class="g-funnel-pill${noneOn ? ' on' : ''}" data-fs="" title="Campagnes zonder funnelfase">— Geen —</button>`;
+    html += `<button class="g-funnel-pill${noneOn ? '' : ' off'}" data-fs="" title="Campagnes zonder funnelfase"><span class="g-fn-dot" style="background:#94A3B8"></span>Geen</button>`;
     const hidden = document.body.classList.contains('legend-hidden');
-    html += `<button class="leg-toggle" id="legToggle" title="Toon/verberg de legenda onderaan">${hidden ? '👁 Toon legenda' : '🙈 Verberg legenda'}</button>`;
+    html += `<button class="leg-toggle" id="legToggle" title="Toon/verberg de legenda onderaan">${hidden ? 'Toon legenda' : 'Verberg legenda'}</button>`;
     bar.innerHTML = html;
   }
 

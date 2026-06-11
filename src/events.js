@@ -32,6 +32,35 @@
 
   FS.events = { showApp };
 
+  /** Voeg een nieuwe campagne toe met een gegarandeerd uniek id en open de
+   *  bewerk-modal. Gedeeld door de topbar-CTA, de lege-staat-knop en Ctrl+N. */
+  function addCampaign() {
+    const s = FS.state;
+    // Bereken een id dat nooit botst met een bestaande campagne (ook niet bij
+    // ingeladen bestanden zonder correcte nextId).
+    const maxId = s.campaigns.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0);
+    const newId = Math.max(Number(s.nextId) || 0, maxId + 1);
+    s.nextId = newId + 1;
+    const newCamp = {
+      id: newId,
+      sec: 'losse',
+      label: 'Nieuwe campagne',
+      col: C.PALETTE[s.campaigns.length % C.PALETTE.length],
+      budget: 0,
+      segs: [],
+    };
+    // Plaats nieuwe (losse) campagnes vóór de Always-On-sectie.
+    let idx = 0;
+    for (let i = 0; i < s.campaigns.length; i++) {
+      if (s.campaigns[i].sec === 'ao') { idx = i; break; }
+      idx = i + 1;
+    }
+    s.campaigns.splice(idx, 0, newCamp);
+    FS.render.render();
+    FS.modals.showCampModal(findCampaignIndex(newCamp.id));
+  }
+  FS.events.addCampaign = addCampaign;
+
   document.addEventListener('DOMContentLoaded', wireUp);
 
   function wireUp() {
@@ -143,6 +172,76 @@
       document.addEventListener('click', (e) => {
         if (!exportMenu.contains(e.target)) closeExportMenu();
       });
+    }
+
+    /* ----- Thema-schakelaar (licht/donker) ----- */
+    const btnTheme = document.getElementById('btnTheme');
+    if (btnTheme) {
+      btnTheme.addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+        const next = cur === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('fs-theme', next); } catch (e) { /* private mode */ }
+        if (FS.toast) FS.toast.show(next === 'dark' ? '🌙 Donkere modus' : '☀️ Lichte modus', 'info', 1400);
+      });
+    }
+
+    /* ----- Weergave-popover (zoom, periode, jaar) ----- */
+    const viewPop = document.getElementById('viewPop');
+    const btnView = document.getElementById('btnView');
+    if (viewPop && btnView) {
+      btnView.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = viewPop.classList.toggle('open');
+        btnView.setAttribute('aria-expanded', String(open));
+      });
+      const panel = viewPop.querySelector('.tb-pop-panel');
+      if (panel) panel.addEventListener('click', (e) => e.stopPropagation());
+      document.addEventListener('click', (e) => {
+        if (!viewPop.contains(e.target)) viewPop.classList.remove('open');
+      });
+    }
+
+    /* ----- Filters tonen/verbergen (funnel- en merkbalk) ----- */
+    const btnFilters = document.getElementById('btnFilters');
+    if (btnFilters) {
+      btnFilters.addEventListener('click', () => {
+        const on = document.body.classList.toggle('show-filters');
+        btnFilters.classList.toggle('on', on);
+      });
+    }
+
+    /* ----- "Meer"-menu (inzichten/versies/merge/export/laden/settings) ----- */
+    const moreMenu = document.getElementById('tbMore');
+    const btnMore = document.getElementById('btnMore');
+    if (moreMenu && btnMore) {
+      const closeMore = () => {
+        moreMenu.classList.remove('open');
+        btnMore.setAttribute('aria-expanded', 'false');
+      };
+      btnMore.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = moreMenu.classList.toggle('open');
+        btnMore.setAttribute('aria-expanded', String(open));
+      });
+      moreMenu.querySelectorAll('.tb-menu-item').forEach((item) => {
+        item.addEventListener('click', (e) => {
+          const act = e.currentTarget.dataset.act;
+          closeMore();
+          if (act === 'csv') FS.io.exportCSV();
+          else if (act === 'xls') FS.io.exportXLS();
+          else if (act === 'pdf') window.print();
+        });
+      });
+      document.addEventListener('click', (e) => {
+        if (!moreMenu.contains(e.target)) closeMore();
+      });
+    }
+
+    /* ----- Topbar-CTA: nieuwe campagne ----- */
+    const btnNewCampTop = document.getElementById('btnNewCampTop');
+    if (btnNewCampTop) {
+      btnNewCampTop.addEventListener('click', () => addCampaign());
     }
 
     document.getElementById('btnSett').addEventListener('click', FS.modals.openSett);
@@ -819,41 +918,18 @@
     document.getElementById('summaryBar').addEventListener('click', (e) => {
       const card = e.target.closest('.scard');
       if (!card) return;
-      if (card.id === 'addCampBtn') {
-        const s = FS.state;
-        const newCamp = {
-          id: s.nextId++,
-          sec: 'losse',
-          label: 'Nieuwe campagne',
-          col: C.PALETTE[s.campaigns.length % C.PALETTE.length],
-          budget: 0,
-          segs: [],
-        };
-        let idx = 0;
-        for (let i = 0; i < s.campaigns.length; i++) {
-          if (s.campaigns[i].sec === 'ao') { idx = i; break; }
-          idx = i + 1;
-        }
-        s.campaigns.splice(idx, 0, newCamp);
-        FS.render.render();
-        FS.modals.showCampModal(findCampaignIndex(newCamp.id));
-        return;
-      }
       if (card.id === 'scJ' || card.id === 'scC' || card.id === 'scT' || card.id === 'scFee') FS.modals.openSett();
     });
 
     /* ----- Empty-state knoppen ----- */
     document.getElementById('gantt').addEventListener('click', (e) => {
       if (e.target.id === 'empAdd') {
-        document.getElementById('addCampBtn') && document.getElementById('addCampBtn').click();
+        addCampaign();
         return;
       }
       if (e.target.id === 'empLoad') {
         document.getElementById('FI').click();
         return;
-      }
-      if (e.target.id === 'empTpl') {
-        if (FS.collab) FS.collab.open();
       }
     });
 
@@ -889,8 +965,7 @@
         if (key === 'n') {
           if (isTypingTarget(e.target)) return;
           e.preventDefault();
-          const addBtn = document.getElementById('addCampBtn');
-          if (addBtn) addBtn.click();
+          addCampaign();
           return;
         }
         if (key === 'e') {

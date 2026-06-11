@@ -192,8 +192,8 @@
           + `</div><div class="m-item-meta">`
           + `<span>${esc(fK(FS.calc.flightBudget(f)))}</span>`
           + (f.actualized ? `<span style="color:#9A3412" title="Werkelijk besteed">💵${esc(fK(f.actualBudget || 0))}</span>` : '')
-          + (f.cb ? `<span style="color:#EC4899">🎨${esc(fK(f.cb))}</span>` : '')
-          + (f.tc ? `<span style="color:#1E40AF">🔧${esc(fK(f.tc))}</span>` : '')
+          + (f.cb ? `<span class="camp-crea">🎨${esc(fK(f.cb))}</span>` : '')
+          + (f.tc ? `<span class="camp-tool">🔧${esc(fK(f.tc))}</span>` : '')
           + `<span>W${dateToWeek(f.sd)}–W${dateToWeek(f.ed)}</span>`
           + `<span>${f.tac ? f.tac.length : 0} tac</span></div></div>`
           + `<div style="color:#C5CAE9;font-size:18px">›</div></div>`;
@@ -266,10 +266,10 @@
       + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFb" type="number" value="${f.b || 0}" step="1000"></span></div></div>`;
 
     h += `<div class="mf-row">`
-      + `<div class="mf-field"><label style="color:#EC4899">🎨 Creatie</label>`
-      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFcb" type="number" value="${f.cb || 0}" step="100" style="border-color:#FBCFE8;background:#FDF2F8"></span></div>`
-      + `<div class="mf-field"><label style="color:#1E40AF">🔧 Tooling</label>`
-      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFtc" type="number" value="${f.tc || 0}" step="100" style="border-color:#BFDBFE;background:#EFF6FF"></span></div></div>`;
+      + `<div class="mf-field"><label class="mf-lbl-crea">🎨 Creatie</label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFcb" class="mf-crea" type="number" value="${f.cb || 0}" step="100"></span></div>`
+      + `<div class="mf-field"><label class="mf-lbl-tool">🔧 Tooling</label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFtc" class="mf-tool" type="number" value="${f.tc || 0}" step="100"></span></div></div>`;
 
     if (f.actualized) {
       const planned = f.plannedBudget != null ? f.plannedBudget : FS.calc.flightBudget(f);
@@ -322,8 +322,8 @@
         + `</span></div>`;
     } else {
       h += `<div class="m-total"><span>Totaal: ${esc(fC(FS.calc.flightBudget(f)))}</span>`
-        + (f.cb ? `<span style="color:#EC4899">🎨${esc(fC(f.cb))}</span>` : '')
-        + (f.tc ? `<span style="color:#1E40AF">🔧${esc(fC(f.tc))}</span>` : '')
+        + (f.cb ? `<span class="camp-crea">🎨${esc(fC(f.cb))}</span>` : '')
+        + (f.tc ? `<span class="camp-tool">🔧${esc(fC(f.tc))}</span>` : '')
         + `</div>`;
     }
 

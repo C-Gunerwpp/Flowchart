@@ -565,3 +565,566 @@ body.legend-hidden .legend{display:none}
 .mg-foot-btns{display:flex;gap:8px}
 .mg-foot-btns .mbtn{padding:9px 18px;font-size:11px}
 .mbtn[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none}
+
+/* =====================================================================
+   THEME SYSTEM v14 — light/dark tokens + clean UI
+   Bestaande regels hierboven blijven ongewijzigd; alles hieronder
+   her-thema't de oppervlakken via tokens + een donkere skin.
+   ===================================================================== */
+
+/* ---- Tokens (default = dark, zoals de referentie) ---- */
+:root{
+  color-scheme:dark;
+  --app-bg:#0a0e1a;
+  --app-grad:radial-gradient(1100px 620px at 78% -12%, #18213f 0%, rgba(10,14,26,0) 60%), #0a0e1a;
+  --panel:#0e1424;
+  --panel-border:rgba(255,255,255,.07);
+  --summary-bg:#0c1120;
+  --surface:#141b2d;
+  --surface-2:#1a2235;
+  --surface-3:#222b42;
+  --border:rgba(255,255,255,.08);
+  --border-2:rgba(255,255,255,.15);
+  --text:#e8edf7;
+  --text-2:#aab3cb;
+  --text-3:#76819c;
+  --heading:#f3f6fc;
+  --primary:#5b8cff;
+  --primary-strong:#4174f5;
+  --primary-soft:rgba(91,140,255,.16);
+  --accent:#9fe264;
+  --accent-text:#0c1f08;
+  --ok:#34d399;
+  --danger:#f97066;
+  --warn:#fbbf24;
+  --logo-ink:#e7ecf8;
+  --shadow-md:0 10px 30px rgba(0,0,0,.45);
+  --shadow-lg:0 26px 70px rgba(0,0,0,.6);
+  --scroll-thumb:rgba(255,255,255,.16);
+}
+html[data-theme="light"]{
+  color-scheme:light;
+  --app-bg:#eef1f7;
+  --app-grad:linear-gradient(180deg,#f5f7fc,#e9edf6);
+  --panel:#ffffff;
+  --panel-border:#e6e9f0;
+  --summary-bg:#f4f6fb;
+  --surface:#ffffff;
+  --surface-2:#f4f6fb;
+  --surface-3:#e9eef7;
+  --border:#e6e9f0;
+  --border-2:#d3d9e6;
+  --text:#1a2236;
+  --text-2:#586079;
+  --text-3:#8a93a9;
+  --heading:#0c1322;
+  --primary:#2f5fe0;
+  --primary-strong:#1e40af;
+  --primary-soft:rgba(47,95,224,.10);
+  --accent:#7ec23f;
+  --accent-text:#0c1f08;
+  --ok:#059669;
+  --danger:#dc2626;
+  --warn:#d97706;
+  --logo-ink:#0a1240;
+  --shadow-md:0 10px 30px rgba(20,30,60,.12);
+  --shadow-lg:0 26px 70px rgba(20,30,60,.20);
+  --scroll-thumb:rgba(10,20,50,.20);
+}
+
+/* ---- Globale verfijning (beide thema's) ---- */
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.gantt-wrap::-webkit-scrollbar,.modal::-webkit-scrollbar,.cb-list::-webkit-scrollbar,.cmp-list::-webkit-scrollbar{width:11px;height:11px}
+.gantt-wrap::-webkit-scrollbar-thumb,.modal::-webkit-scrollbar-thumb,.cb-list::-webkit-scrollbar-thumb,.cmp-list::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:8px;border:3px solid transparent;background-clip:content-box}
+.gantt-wrap::-webkit-scrollbar-track,.modal::-webkit-scrollbar-track{background:transparent}
+/* rondere bars + zachtere kaarten voor een rustigere look */
+.gantt .g-bar{border-radius:7px}
+.summary .scard{border-radius:12px}
+
+/* ---- Nieuwe topbar-componenten (token-gebaseerd → werkt in beide thema's) ---- */
+.topbar{padding:11px 18px;gap:10px}
+.tb-brand{display:flex;align-items:center;gap:11px;min-width:0}
+.tb-logo{width:30px;height:30px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;color:var(--logo-ink)}
+.tb-logo svg{width:100%;height:100%;display:block}
+.tb-titles{display:flex;align-items:baseline;gap:8px;min-width:0}
+.tb-sep{width:1px;height:22px;background:var(--border);margin:0 2px;flex-shrink:0}
+.tb-icon{width:34px;height:34px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-2);cursor:pointer;font-size:14px;font-family:inherit;padding:0;transition:background .14s,color .14s,border-color .14s}
+.tb-icon:hover{background:var(--surface-2);color:var(--text);border-color:var(--border-2)}
+.tb-icon.on{background:var(--primary-soft);color:var(--primary);border-color:transparent}
+.tb-icon svg{width:17px;height:17px;display:block}
+.tb-icon .ico-lbl{font-size:9px;font-weight:700;margin-left:5px}
+.tb-cta{display:inline-flex;align-items:center;gap:7px;background:var(--accent);color:var(--accent-text);border:none;border-radius:11px;padding:9px 16px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap;transition:filter .14s,transform .14s}
+.tb-cta:hover{filter:brightness(1.06);transform:translateY(-1px)}
+.tb-cta svg{width:15px;height:15px}
+/* Weergave-popover (zoom, periode, jaar) */
+.tb-pop{position:relative;display:inline-flex}
+.tb-pop-panel{display:none;position:absolute;top:calc(100% + 9px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow-md);padding:8px 14px;z-index:40;min-width:240px;color:var(--text)}
+.tb-pop.open .tb-pop-panel{display:block}
+.tb-pop-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0}
+.tb-pop-row+.tb-pop-row{border-top:1px solid var(--border)}
+.tb-pop-lbl{font-size:9px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.5px}
+/* Menu-extra's voor het "meer"-menu */
+.tb-menu-sep{height:1px;background:var(--border);margin:5px 4px}
+.tb-menu-sub{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);padding:7px 10px 3px}
+#tbMore .tb-menu-list{min-width:196px}
+.tb-menu-item.with-ic{display:flex;align-items:center;gap:9px}
+.tb-menu-item .mi-ic{width:16px;text-align:center;flex-shrink:0}
+/* Thema-schakelaar: toon juiste icoon per modus */
+html[data-theme="dark"] .tb-theme .ico-sun{display:block}
+html[data-theme="dark"] .tb-theme .ico-moon{display:none}
+html[data-theme="light"] .tb-theme .ico-sun{display:none}
+html[data-theme="light"] .tb-theme .ico-moon{display:block}
+/* Filterbalken standaard opgeborgen; tonen via "Filters"-knop */
+body:not(.show-filters) .funnel-bar,
+body:not(.show-filters) .brand-bar{display:none!important}
+
+/* ===== END THEME PART 1 ===== */
+
+/* =====================================================================
+   DARK SKIN — overschrijft alle lichte oppervlakken in donkere modus
+   ===================================================================== */
+html[data-theme="dark"] body{background:var(--app-bg);color:var(--text)}
+
+/* Welkomstscherm */
+html[data-theme="dark"] #W{background:var(--app-grad)}
+
+/* Topbar */
+html[data-theme="dark"] .topbar{background:var(--panel);border-bottom:1px solid var(--panel-border)}
+html[data-theme="dark"] .topbar h1{color:var(--heading)}
+html[data-theme="dark"] .topbar .badge{background:var(--primary-soft);color:var(--primary)}
+html[data-theme="dark"] .tb-client{background:var(--surface-2);border-color:var(--border)}
+html[data-theme="dark"] .tb-client-label{color:var(--text-3)}
+html[data-theme="dark"] .tb-client input{color:var(--text)}
+html[data-theme="dark"] .tb-client input::placeholder{color:var(--text-3)}
+html[data-theme="dark"] .tb-in{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .tb-btn{color:var(--text-2);border-color:var(--border);background:transparent}
+html[data-theme="dark"] .tb-btn:hover{background:var(--surface-2);color:var(--text)}
+html[data-theme="dark"] .tb-btn.save{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .tb-btn.save:hover{background:var(--surface-3)}
+html[data-theme="dark"] .tb-btn.load{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .tb-status{color:var(--text-3)}
+html[data-theme="dark"] .tb-zv{color:var(--text);background:var(--surface-2);border-color:var(--border)}
+html[data-theme="dark"] .tb-zv:hover{background:var(--surface-3)}
+html[data-theme="dark"] .tb-range{background:var(--surface-2);border-color:var(--border)}
+html[data-theme="dark"] .tb-range-lbl{color:var(--text)}
+html[data-theme="dark"] .tb-range-lbl:hover{background:var(--surface-3)}
+html[data-theme="dark"] .tb-range-suf{color:var(--text-3)}
+html[data-theme="dark"] #monthCountIn{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+
+/* Summary-kaarten */
+html[data-theme="dark"] .summary{background:var(--summary-bg);border-bottom:1px solid var(--border)}
+html[data-theme="dark"] .scard{background:var(--surface);border:1px solid var(--border);box-shadow:none}
+html[data-theme="dark"] .scard .sl{color:var(--text-3)}
+html[data-theme="dark"] .scard .sv{color:var(--heading)}
+html[data-theme="dark"] .scard .sd{color:var(--text-3)}
+html[data-theme="dark"] .scard.s-click:hover{background:var(--surface-2)}
+html[data-theme="dark"] .scard.s-add{background:var(--primary);border-left-color:var(--primary);color:#fff}
+html[data-theme="dark"] .scard.s-add:hover{background:var(--primary-strong)}
+
+/* Filterbalken + pillen */
+html[data-theme="dark"] .funnel-bar,
+html[data-theme="dark"] .brand-bar{background:var(--summary-bg);border-bottom:1px solid var(--border)}
+html[data-theme="dark"] .leg-lbl{color:var(--text-2)}
+html[data-theme="dark"] .g-funnel-pill,
+html[data-theme="dark"] .g-brand-pill{background:var(--surface-2);border-color:var(--border);color:var(--text-2)}
+html[data-theme="dark"] .g-funnel-pill:hover{border-color:var(--primary);color:var(--primary)}
+html[data-theme="dark"] .g-brand-pill:hover{border-color:var(--text);color:var(--text)}
+html[data-theme="dark"] .g-brand-pill.on{background:var(--surface-3);color:var(--text)}
+html[data-theme="dark"] .leg-toggle{background:var(--surface-2);border-color:var(--border);color:var(--text-2)}
+html[data-theme="dark"] .leg-toggle:hover{border-color:var(--primary);color:var(--primary);background:var(--surface-3)}
+
+/* Gantt: container + koppen */
+html[data-theme="dark"] .gantt-wrap,
+html[data-theme="dark"] .gantt{background:var(--app-bg)}
+html[data-theme="dark"] .g-head-q,
+html[data-theme="dark"] .g-head-q .gh-label,
+html[data-theme="dark"] .g-head-q .gh-budget{background:#0c1322;color:var(--text-2)}
+html[data-theme="dark"] .gantt .g-head-m,
+html[data-theme="dark"] .gantt .g-head-m .gh-label,
+html[data-theme="dark"] .gantt .g-head-m .gh-budget{background:#0b1020;color:var(--text-3);border-top-color:var(--border)}
+html[data-theme="dark"] .gantt .gh-m{border-left-color:var(--border)}
+html[data-theme="dark"] .g-head-w,
+html[data-theme="dark"] .g-head-w .gh-label,
+html[data-theme="dark"] .g-head-w .gh-budget{background:#0c1322;color:var(--text-2)}
+html[data-theme="dark"] .gh-qd{border-left-color:var(--border)}
+
+/* Gantt: secties + rijen */
+html[data-theme="dark"] .g-sec{background:linear-gradient(90deg,var(--surface-2),var(--surface));color:var(--text-2);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+html[data-theme="dark"] .g-sec.g-sec-brand{background:linear-gradient(90deg,#1c2444,#161d31);border-top-color:var(--border)}
+html[data-theme="dark"] .g-sec-brand .g-sec-cnt{background:var(--surface-3);color:var(--text)}
+html[data-theme="dark"] .g-row{border-bottom-color:var(--border)}
+html[data-theme="dark"] .g-row.g-camp{border-bottom-color:var(--border)}
+html[data-theme="dark"] .g-row:hover{background:var(--surface-2)}
+html[data-theme="dark"] .g-row.g-exp{background:var(--surface)}
+html[data-theme="dark"] .g-row.g-sel .g-label{background:var(--primary-soft);box-shadow:inset 3px 0 0 var(--primary)}
+
+/* Gantt: sticky label/budget kolommen */
+html[data-theme="dark"] .gantt .g-label{background:var(--app-bg);color:var(--text);border-right:1px solid var(--border)}
+html[data-theme="dark"] .gantt .g-label:hover{background:var(--surface-2)}
+html[data-theme="dark"] .gantt .g-sub .g-label{color:var(--text-2)}
+html[data-theme="dark"] .gantt .g-tac .g-label{color:var(--text-3)}
+html[data-theme="dark"] .gantt .g-budget{background:var(--surface);color:var(--text);border-right:1px solid var(--border)}
+html[data-theme="dark"] .gantt .g-sub .g-budget{background:var(--surface);color:var(--text-2)}
+html[data-theme="dark"] .gantt .g-tac .g-budget{background:var(--surface-2);color:var(--text-3)}
+html[data-theme="dark"] .g-row:hover .g-label,
+html[data-theme="dark"] .g-row:hover .g-budget{background:var(--surface-2)}
+html[data-theme="dark"] .g-toggle{color:var(--primary)}
+html[data-theme="dark"] .g-count{color:var(--text-3)}
+html[data-theme="dark"] .g-row.g-camp .g-addf{background:var(--surface-2);border-color:var(--border-2);color:var(--text-2)}
+html[data-theme="dark"] .g-row.g-camp .g-addf:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* Gantt: footer-/totaalrijen */
+html[data-theme="dark"] .gantt .g-row.g-tot .g-label,
+html[data-theme="dark"] .gantt .g-row.g-tot .g-budget{background:var(--surface-2);color:var(--heading)}
+html[data-theme="dark"] .gantt .g-row.g-crea .g-label,
+html[data-theme="dark"] .gantt .g-row.g-crea .g-budget{background:var(--surface);color:#f0a6cf}
+html[data-theme="dark"] .gantt .g-row.g-tool .g-label,
+html[data-theme="dark"] .gantt .g-row.g-tool .g-budget{background:var(--surface);color:#93c5fd}
+html[data-theme="dark"] .gantt .g-row.g-jaar{border-top-color:var(--border)}
+html[data-theme="dark"] .gantt .g-row.g-jaar .g-label,
+html[data-theme="dark"] .gantt .g-row.g-jaar .g-budget{background:#0c1322;color:var(--heading)}
+html[data-theme="dark"] .gantt .g-row.g-rest .g-label,
+html[data-theme="dark"] .gantt .g-row.g-rest .g-budget{background:var(--surface-2);color:var(--ok)}
+html[data-theme="dark"] .gantt .g-row.g-rest.neg .g-label,
+html[data-theme="dark"] .gantt .g-row.g-rest.neg .g-budget{background:rgba(249,112,102,.12);color:var(--danger)}
+html[data-theme="dark"] .gantt .g-row.g-foot.g-media .g-label{color:#5eead4}
+html[data-theme="dark"] .gantt .g-row.g-foot.g-fee .g-label{color:#c4b5fd}
+html[data-theme="dark"] .gantt .g-row.g-foot.g-tot .g-label{color:var(--heading)}
+html[data-theme="dark"] .gantt .g-row.g-foot.g-btw .g-label{color:#fcd34d}
+html[data-theme="dark"] .g-row.g-foot.g-brandtot{background:var(--surface)}
+html[data-theme="dark"] .g-brandtot .g-label,
+html[data-theme="dark"] .g-brandtot .g-budget{color:var(--heading)}
+
+/* Gantt: lege staat */
+html[data-theme="dark"] .g-empty{color:var(--text-2)}
+html[data-theme="dark"] .g-empty-h{color:var(--heading)}
+html[data-theme="dark"] .g-empty-sub,
+html[data-theme="dark"] .g-empty-kb{color:var(--text-3)}
+html[data-theme="dark"] .g-empty-kb kbd{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+
+/* Legenda */
+html[data-theme="dark"] .legend{background:var(--summary-bg);border-top:1px solid var(--border)}
+html[data-theme="dark"] .leg-item{color:var(--text-2)}
+
+/* Modals (generiek) */
+html[data-theme="dark"] .modal-bg,
+html[data-theme="dark"] #cfmBg{background:rgba(2,5,12,.62)}
+html[data-theme="dark"] .modal{background:var(--surface);color:var(--text);box-shadow:var(--shadow-lg)}
+html[data-theme="dark"] .modal-head{background:#0d1426;color:var(--heading);border-bottom:1px solid var(--border)}
+html[data-theme="dark"] .modal-nav{color:var(--text)}
+html[data-theme="dark"] .modal-close{color:var(--text-2)}
+html[data-theme="dark"] .modal-close:hover{background:var(--surface-2);color:var(--text)}
+html[data-theme="dark"] .mf-field label{color:var(--text-3)}
+html[data-theme="dark"] .mf-field input,
+html[data-theme="dark"] .mf-field select,
+html[data-theme="dark"] .mf-field textarea{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .mf-field input:focus,
+html[data-theme="dark"] .mf-field select:focus,
+html[data-theme="dark"] .mf-field textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+html[data-theme="dark"] .mf-actions{border-top-color:var(--border)}
+html[data-theme="dark"] .mbtn{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .mbtn:hover{background:var(--surface-3);border-color:var(--primary)}
+html[data-theme="dark"] .mbtn.pri{background:var(--primary);color:#fff;border-color:var(--primary)}
+html[data-theme="dark"] .mbtn.pri:hover{background:var(--primary-strong)}
+html[data-theme="dark"] .mbtn.del{background:rgba(249,112,102,.16);color:var(--danger);border-color:rgba(249,112,102,.32)}
+html[data-theme="dark"] .mbtn.grn{background:rgba(52,211,153,.16);color:var(--ok);border-color:rgba(52,211,153,.32)}
+html[data-theme="dark"] .m-item{background:var(--surface-2);border-color:var(--border)}
+html[data-theme="dark"] .m-item:hover{background:var(--surface-3);border-color:var(--primary)}
+html[data-theme="dark"] .m-item-name{color:var(--heading)}
+html[data-theme="dark"] .m-item-meta{color:var(--text-3)}
+html[data-theme="dark"] .m-total{background:var(--surface-2);color:var(--text)}
+html[data-theme="dark"] .m-section{border-top-color:var(--border)}
+html[data-theme="dark"] .m-section h4{color:var(--heading)}
+
+/* Modals: kleurkiezer + kanaal-items */
+html[data-theme="dark"] .pal-trigger{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .pal-panel{background:var(--surface);border-color:var(--border);box-shadow:var(--shadow-md)}
+html[data-theme="dark"] .pal-gn{color:var(--text-3)}
+html[data-theme="dark"] .pal-group+.pal-group{border-top-color:var(--border)}
+html[data-theme="dark"] .pal-chev{color:var(--text-3)}
+html[data-theme="dark"] .ch-item{border-color:var(--border)}
+html[data-theme="dark"] .ch-item.hv{border-color:var(--primary);background:var(--surface-2)}
+html[data-theme="dark"] .ch-ic{background:var(--surface-3)}
+html[data-theme="dark"] .ch-nm{color:var(--text)}
+html[data-theme="dark"] .ch-fp{color:#c4b5fd}
+html[data-theme="dark"] .ch-top input{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ch-det{background:var(--surface-2);border-top-color:var(--border)}
+html[data-theme="dark"] .ch-mf label{color:var(--text-3)}
+html[data-theme="dark"] .ch-mf input{background:var(--surface);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ch-mf input[disabled]{background:var(--surface-3);color:#c4b5fd;border-color:var(--border)}
+html[data-theme="dark"] .ch-mf input.netto{background:rgba(52,211,153,.12);color:var(--ok);border-color:rgba(52,211,153,.28)}
+html[data-theme="dark"] .ch-comp{background:var(--surface-2)}
+html[data-theme="dark"] .cur-wrap>.cur-sym{color:var(--text-3)}
+html[data-theme="dark"] .mf-field label .lbl-help{background:var(--surface-3);color:var(--text-3)}
+
+/* Bevestigingsdialoog + tooltip */
+html[data-theme="dark"] .cfm-box{background:var(--surface);color:var(--text);box-shadow:var(--shadow-lg)}
+html[data-theme="dark"] .cfm-msg{color:var(--text)}
+html[data-theme="dark"] .cfm-msg strong{color:var(--heading)}
+html[data-theme="dark"] .ttip{background:#0c1322;color:var(--text);border:1px solid var(--border);box-shadow:var(--shadow-md)}
+html[data-theme="dark"] .ttip h5{color:var(--primary)}
+
+/* Toasts */
+html[data-theme="dark"] .toast{background:var(--surface-3);color:var(--text);box-shadow:var(--shadow-md)}
+html[data-theme="dark"] .toast-warn{background:#3a2c12}
+html[data-theme="dark"] .toast-error{background:#3a1718}
+
+/* Menu's / popovers (donker) */
+html[data-theme="dark"] .tb-menu-list{background:var(--surface);border-color:var(--border);box-shadow:var(--shadow-md);color:var(--text)}
+html[data-theme="dark"] .tb-menu-item{color:var(--text)}
+html[data-theme="dark"] .tb-menu-item:hover{background:var(--surface-2);color:var(--primary)}
+
+/* ===== END THEME PART 2 ===== */
+
+/* Inzichten-modal (donker) */
+html[data-theme="dark"] .ins-filters{background:var(--surface-2);border-color:var(--border)}
+html[data-theme="dark"] .ins-filt-l{color:var(--heading)}
+html[data-theme="dark"] .ins-filt-mini,
+html[data-theme="dark"] .ins-filt-dash{color:var(--text-3)}
+html[data-theme="dark"] .ins-filters input[type=date]{background:var(--surface);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ins-chan,
+html[data-theme="dark"] .ins-funnel{background:var(--surface);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ins-chan:hover{border-color:var(--primary)}
+html[data-theme="dark"] .ins-chan.off,
+html[data-theme="dark"] .ins-funnel.off{background:var(--surface-2);opacity:.5}
+html[data-theme="dark"] .ins-filt-note{background:#3a2f12;color:#fcd34d;border-left-color:var(--warn)}
+html[data-theme="dark"] .ins-filt-details summary{background:var(--surface);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ins-filt-details summary::before{color:var(--text-3)}
+html[data-theme="dark"] .ins-kpi{background:var(--surface-2);border-color:var(--border);border-left-color:var(--primary)}
+html[data-theme="dark"] .ins-kpi-l{color:var(--text-3)}
+html[data-theme="dark"] .ins-kpi-v{color:var(--heading)}
+html[data-theme="dark"] .ins-kpi-pos .ins-kpi-v{color:var(--ok)}
+html[data-theme="dark"] .ins-kpi-neg .ins-kpi-v{color:var(--danger)}
+html[data-theme="dark"] .ins-sec{background:var(--surface);border-color:var(--border)}
+html[data-theme="dark"] .ins-sec h4{color:var(--heading);border-bottom-color:var(--border)}
+html[data-theme="dark"] .ins-chart-slot{background:var(--surface-2);border-color:var(--border);color:var(--text-3)}
+html[data-theme="dark"] .ins-actions{border-top-color:var(--border)}
+html[data-theme="dark"] .ins-hint{color:var(--text-3)}
+html[data-theme="dark"] .ins-leg-nm{color:var(--text)}
+html[data-theme="dark"] .ins-leg-v{color:var(--heading)}
+html[data-theme="dark"] .ins-leg-p{color:var(--text-3)}
+html[data-theme="dark"] .ins-split-bar{border-color:var(--border)}
+html[data-theme="dark"] .ins-split-leg{color:var(--text)}
+html[data-theme="dark"] .ins-empty{color:var(--text-3)}
+html[data-theme="dark"] .ins-table td,
+html[data-theme="dark"] .ins-table th{border-color:var(--border)}
+html[data-theme="dark"] .ins-table th{background:#0c1322;color:var(--text)}
+html[data-theme="dark"] .ins-table td{color:var(--text)}
+html[data-theme="dark"] .ins-table tfoot td{background:var(--surface-2);color:var(--heading)}
+html[data-theme="dark"] .ins-var-pos{color:var(--ok)}
+html[data-theme="dark"] .ins-var-neg{color:var(--danger)}
+html[data-theme="dark"] .ins-tabs{border-bottom-color:var(--border)}
+html[data-theme="dark"] .ins-tab{color:var(--text-3)}
+html[data-theme="dark"] .ins-tab:hover{color:var(--primary)}
+html[data-theme="dark"] .ins-tab.on{color:var(--heading);border-bottom-color:var(--primary)}
+html[data-theme="dark"] .ins-bl-lbl{color:var(--text)}
+html[data-theme="dark"] .ins-bl-track{background:var(--surface-2)}
+html[data-theme="dark"] .ins-bl-val{color:var(--heading)}
+html[data-theme="dark"] .ins-bl-pct{color:var(--text-3)}
+html[data-theme="dark"] .ins-pill-act{background:#3a2a12;color:#fcd34d}
+html[data-theme="dark"] .ins-pill-plan{background:var(--primary-soft);color:var(--primary)}
+
+/* Settings (donker) */
+html[data-theme="dark"] #settBody{background:#0d1424}
+html[data-theme="dark"] .ss-card{background:var(--surface);border-color:var(--border);box-shadow:none}
+html[data-theme="dark"] .ss-head{background:var(--surface-2);border-bottom-color:var(--border)}
+html[data-theme="dark"] .ss-head h4{color:var(--heading)}
+html[data-theme="dark"] .ss-auto{background:var(--primary-soft);color:var(--primary)}
+html[data-theme="dark"] .ss-auto em,
+html[data-theme="dark"] .ss-hint{color:var(--text-3)}
+html[data-theme="dark"] .ss-ic-bg{background:#3a2f12}
+html[data-theme="dark"] .ss-ic-cr{background:#3a1830}
+html[data-theme="dark"] .ss-ic-tl{background:#16294d}
+html[data-theme="dark"] .ss-ic-fe{background:#20235a}
+html[data-theme="dark"] .ss-ic-cm{background:#103021}
+html[data-theme="dark"] .ss-body .j-row{border-bottom-color:var(--border)}
+html[data-theme="dark"] .ss-body .j-row-base .j-lbl{color:var(--heading)}
+html[data-theme="dark"] .ss-body .j-amt,
+html[data-theme="dark"] .ss-body .j-nt{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ss-empty{color:var(--text-3)}
+html[data-theme="dark"] .ss-foot{background:var(--surface-2);border-top-color:var(--border)}
+html[data-theme="dark"] .ss-add{background:var(--surface);border-color:var(--primary);color:var(--primary)}
+html[data-theme="dark"] .ss-add:hover{background:var(--primary-soft);border-color:var(--primary)}
+html[data-theme="dark"] .ss-tot{color:var(--text-3)}
+html[data-theme="dark"] .ss-tot strong{color:var(--heading)}
+html[data-theme="dark"] .ss-body .fee-item{background:var(--surface-2);border-color:var(--border)}
+html[data-theme="dark"] .ss-body .fee-item label{color:var(--text)}
+html[data-theme="dark"] .ss-body .fi-input input{background:var(--surface);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ss-body .fi-suf{color:var(--text-3)}
+html[data-theme="dark"] .ss-check{border-bottom-color:var(--border)}
+html[data-theme="dark"] .ss-check-tx{color:var(--heading)}
+html[data-theme="dark"] .ss-check-tx em{color:var(--text-3)}
+html[data-theme="dark"] .ss-check-pct input{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ss-comm-prev{background:var(--surface-2)}
+html[data-theme="dark"] .ss-comm-line{color:var(--text-2)}
+html[data-theme="dark"] .ss-comm-line strong{color:var(--heading)}
+html[data-theme="dark"] .ss-comm-line.ss-comm-tot{border-top-color:var(--border)}
+html[data-theme="dark"] .ss-toggle label{color:var(--heading)}
+html[data-theme="dark"] .ss-hint-sm{color:var(--text-3)}
+html[data-theme="dark"] .tg-sw{background:var(--surface-3)}
+html[data-theme="dark"] .tg-sw.on{background:var(--primary)}
+
+/* Banners / locks (donker) */
+html[data-theme="dark"] .act-banner.act-warn{background:#3a2f12;border-color:var(--warn);color:#fcd34d}
+html[data-theme="dark"] .act-banner.act-ok{background:#103021;border-color:var(--ok);color:#86efac}
+html[data-theme="dark"] .act-banner.act-lock{background:#1c2150;border-color:#6366f1;color:#c7d2fe}
+html[data-theme="dark"] .act-banner.act-warn .act-btn{background:var(--warn);color:#1a1206}
+html[data-theme="dark"] .act-banner.act-ok .act-btn{background:var(--surface);color:var(--ok);border-color:var(--ok)}
+html[data-theme="dark"] .act-banner.act-lock .act-btn{background:#6366f1;color:#fff}
+html[data-theme="dark"] .mf-row.act-compare{background:#2a2012;border-color:#5a4420}
+
+/* Versies / vergelijk (donker) */
+html[data-theme="dark"] .cb-sec{background:var(--surface-2);border-color:var(--border)}
+html[data-theme="dark"] .cb-sec-head h3{color:var(--heading)}
+html[data-theme="dark"] .cb-item{background:var(--surface);border-color:var(--border)}
+html[data-theme="dark"] .cb-item:hover{border-color:var(--primary)}
+html[data-theme="dark"] .cb-item-n{color:var(--heading)}
+html[data-theme="dark"] .cb-item-meta{color:var(--text-3)}
+html[data-theme="dark"] .cb-hint{color:var(--text-3)}
+html[data-theme="dark"] .cb-hint code{background:var(--surface-3);color:var(--text)}
+html[data-theme="dark"] .cmp-line{background:var(--surface-2);border-left-color:var(--text-3);color:var(--text)}
+html[data-theme="dark"] .cmp-header{background:#0c1322;color:var(--text);border-left-color:var(--primary)}
+html[data-theme="dark"] .cmp-added{background:#103021;border-left-color:var(--ok);color:#86efac}
+html[data-theme="dark"] .cmp-removed{background:#3a1718;border-left-color:var(--danger);color:#fca5a5}
+html[data-theme="dark"] .cmp-changed{background:#3a2f12;border-left-color:var(--warn);color:#fcd34d}
+
+/* Bulk-bar + sneltoetsen (donker) */
+html[data-theme="dark"] .bulk-bar{background:var(--surface-3);color:var(--text);box-shadow:var(--shadow-md)}
+html[data-theme="dark"] .sh-box{background:var(--surface);color:var(--text);box-shadow:var(--shadow-lg)}
+html[data-theme="dark"] .sh-head{border-bottom-color:var(--border)}
+html[data-theme="dark"] .sh-head h2{color:var(--heading)}
+html[data-theme="dark"] .sh-row{border-bottom-color:var(--border)}
+html[data-theme="dark"] .sh-row span{color:var(--text)}
+html[data-theme="dark"] .sh-row kbd{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+
+/* Merge-modal + quick-edit + dropzone (donker) */
+html[data-theme="dark"] .mg-intro{color:var(--text-2)}
+html[data-theme="dark"] .mg-drop{background:var(--surface-2);border-color:var(--primary)}
+html[data-theme="dark"] .mg-drop:hover,
+html[data-theme="dark"] .mg-drop.ov{background:var(--surface-3)}
+html[data-theme="dark"] .mg-drop strong{color:var(--heading)}
+html[data-theme="dark"] .mg-drop-sub{color:var(--text-3)}
+html[data-theme="dark"] .mg-empty{background:var(--surface-2);color:var(--text-3)}
+html[data-theme="dark"] .mg-item{background:var(--surface);border-color:var(--border)}
+html[data-theme="dark"] .mg-brand{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .mg-item-file{color:var(--text-3)}
+html[data-theme="dark"] .mg-item-stat{color:var(--heading)}
+html[data-theme="dark"] .mg-group label{color:var(--text-3)}
+html[data-theme="dark"] .mg-group input{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .mg-foot{border-top-color:var(--border)}
+html[data-theme="dark"] .mg-sum{color:var(--text-3)}
+html[data-theme="dark"] .qe-pop{background:var(--surface);border-color:var(--border);box-shadow:var(--shadow-md);color:var(--text)}
+html[data-theme="dark"] .qe-head{color:var(--heading);border-bottom-color:var(--border)}
+html[data-theme="dark"] .qe-pop label{color:var(--text-3)}
+html[data-theme="dark"] .qe-pop input{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .drop-overlay-inner{background:var(--surface);color:var(--text);border-color:var(--primary)}
+html[data-theme="dark"] .active-file-pill{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+
+/* =====================================================================
+   LIGHT FRESHENING — topbar wordt wit, oppervlakken blijven licht
+   ===================================================================== */
+html[data-theme="light"] body{background:var(--app-bg);color:var(--text)}
+html[data-theme="light"] .topbar{background:var(--panel);border-bottom:1px solid var(--panel-border)}
+html[data-theme="light"] .topbar h1{color:var(--heading)}
+html[data-theme="light"] .topbar .badge{background:var(--primary-soft);color:var(--primary)}
+html[data-theme="light"] .tb-client{background:var(--surface-2);border-color:var(--border)}
+html[data-theme="light"] .tb-client-label{color:var(--text-3)}
+html[data-theme="light"] .tb-client input{color:var(--text)}
+html[data-theme="light"] .tb-client input::placeholder{color:var(--text-3)}
+html[data-theme="light"] .tb-in{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="light"] .tb-btn{color:var(--text-2);border-color:var(--border);background:transparent}
+html[data-theme="light"] .tb-btn:hover{background:var(--surface-2);color:var(--text)}
+html[data-theme="light"] .tb-btn.save{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="light"] .tb-btn.save:hover{background:var(--surface-3)}
+html[data-theme="light"] .tb-btn.load{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="light"] .tb-status{color:var(--text-3)}
+html[data-theme="light"] .tb-zv{color:var(--text);background:var(--surface-2);border-color:var(--border)}
+html[data-theme="light"] .tb-zv:hover{background:var(--surface-3)}
+html[data-theme="light"] .tb-range{background:var(--surface-2);border-color:var(--border)}
+html[data-theme="light"] .tb-range-lbl{color:var(--text)}
+html[data-theme="light"] .tb-range-lbl:hover{background:var(--surface-3)}
+html[data-theme="light"] .tb-range-suf{color:var(--text-3)}
+html[data-theme="light"] #monthCountIn{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="light"] .active-file-pill{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+html[data-theme="light"] .summary{background:var(--summary-bg)}
+html[data-theme="light"] .funnel-bar,
+html[data-theme="light"] .brand-bar{background:var(--summary-bg)}
+html[data-theme="light"] .legend{background:var(--summary-bg)}
+html[data-theme="light"] .gantt-wrap,
+html[data-theme="light"] .gantt{background:#fff}
+
+/* ===== END THEME PART 3 ===== */
+
+/* =====================================================================
+   FEEDBACK FIXES v14.1 — leesbaarheid + minder kleurdruk
+   ===================================================================== */
+
+/* (3) Budgetkaarten houden hun accent-rand in beide thema's. De donkere
+   skin gebruikte `border:1px solid` (shorthand) en overschreef daarmee de
+   gekleurde linkerrand — hier expliciet teruggezet met dikkere accentrand. */
+html[data-theme="dark"] .scard{border:1px solid var(--border);border-left:3px solid var(--primary)}
+html[data-theme="dark"] .scard.s-media{border-left-color:#5eead4}
+html[data-theme="dark"] .scard.s-fee{border-left-color:#c4b5fd}
+html[data-theme="dark"] .scard.s-crea{border-left-color:#fbbf24}
+html[data-theme="dark"] .scard.s-tool{border-left-color:#60a5fa}
+html[data-theme="dark"] .scard.s-rest{border-left-color:#34d399}
+html[data-theme="dark"] .scard.s-click:hover{background:var(--surface-2)}
+
+/* (4) "+ Campagne"-kaart krijgt dezelfde lime CTA-kleur als "+ Nieuwe
+   campagne" bovenin, zodat beide instappunten consistent zijn. */
+.summary .scard.s-add,
+html[data-theme="dark"] .summary .scard.s-add,
+html[data-theme="light"] .summary .scard.s-add{background:var(--accent);color:var(--accent-text);border-left:3px solid var(--accent)}
+.summary .scard.s-add:hover,
+html[data-theme="dark"] .summary .scard.s-add:hover,
+html[data-theme="light"] .summary .scard.s-add:hover{background:var(--accent);filter:brightness(1.07)}
+
+/* (4) Naam-pill neutraal i.p.v. fel blauw — sluit aan bij de icoonknoppen. */
+.user-pill{background:transparent;border:1px solid var(--border);color:var(--text-2);font-weight:700;border-radius:10px;padding:7px 12px}
+.user-pill:hover{background:var(--surface-2);color:var(--text)}
+
+/* (5) Funnel-filter: rustiger en zonder emoji. Inactieve fases gedimd,
+   kleine kleurstip i.p.v. bonte vlakken. Alleen "Alle" krijgt accent. */
+.g-fn-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block}
+.g-funnel-pill{gap:6px}
+.g-funnel-pill.off{opacity:.42}
+.g-funnel-pill.off .g-fn-dot{opacity:.5}
+.g-funnel-pill.g-funnel-all.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+html[data-theme="dark"] .g-funnel-pill.g-funnel-all.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+html[data-theme="dark"] .g-funnel-pill.off{background:var(--surface-2);color:var(--text-3)}
+
+/* Welkomstscherm: info-teken naast "Laden" — nette ronde i-badge */
+.winfo{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1.5px solid currentColor;font-size:9px;font-weight:800;font-style:italic;line-height:1;opacity:.5;margin-left:7px;vertical-align:middle;cursor:help;flex-shrink:0;font-family:Georgia,'Times New Roman',serif}
+.wbtn:hover .winfo{opacity:.85}
+
+/* Creatie/Tooling-velden in de flight-modal: thema-bewust (was hard-coded
+   licht → onleesbaar in dark mode). Hoge specificiteit (.mf-field input.x)
+   zodat het de generieke .mf-field input-regel overschrijft. */
+.mf-field input.mf-crea{border-color:#FBCFE8;background:#FDF2F8;color:#9D174D}
+.mf-field input.mf-tool{border-color:#BFDBFE;background:#EFF6FF;color:#1E3A8A}
+.mf-field input.mf-crea:focus{border-color:#EC4899;box-shadow:0 0 0 3px rgba(236,72,153,.12)}
+.mf-field input.mf-tool:focus{border-color:#3B82F6;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
+html[data-theme="dark"] .mf-field input.mf-crea{background:rgba(236,72,153,.12);border-color:rgba(236,72,153,.45);color:#fbcfe8}
+html[data-theme="dark"] .mf-field input.mf-tool{background:rgba(96,165,250,.14);border-color:rgba(96,165,250,.45);color:#bfdbfe}
+/* Labels + bedrag-badges (creatie roze, tooling blauw) leesbaar in beide thema's */
+.mf-field label.mf-lbl-crea{color:#BE185D}
+.mf-field label.mf-lbl-tool{color:#1D4ED8}
+.camp-crea{color:#BE185D}
+.camp-tool{color:#1D4ED8}
+html[data-theme="dark"] .mf-field label.mf-lbl-crea,
+html[data-theme="dark"] .camp-crea{color:#f5a3c7}
+html[data-theme="dark"] .mf-field label.mf-lbl-tool,
+html[data-theme="dark"] .camp-tool{color:#93c5fd}
+
+/* Gantt-balk: budget blijft altijd zichtbaar; lange naam wordt afgekapt i.p.v.
+   het budget weg te duwen. ✓-vinkje van geactualiseerde balken krijgt ruimte. */
+.gantt .g-bar .bn{min-width:0;flex-shrink:1}
+.gantt .g-bar .bb{flex-shrink:0}
+.gantt .g-bar.g-bar-actual{padding-left:15px}
+
+/* Lege staat: "+ Nieuwe campagne" als prominente lime CTA (zelfde groen als
+   de topbar-knop) zodat dit duidelijk de hoofdactie is. */
+.g-empty-cta{display:inline-flex;align-items:center;gap:7px;background:var(--accent);color:var(--accent-text);border:none;border-radius:11px;padding:13px 26px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 8px 22px rgba(0,0,0,.18);transition:filter .14s,transform .14s}
+.g-empty-cta:hover{filter:brightness(1.07);transform:translateY(-2px)}
+
+/* ===== END FEEDBACK FIXES ===== */

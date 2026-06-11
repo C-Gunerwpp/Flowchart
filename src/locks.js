@@ -34,9 +34,9 @@
     wrap.style.zIndex = '110';
     wrap.innerHTML = '<div class="cfm-box" style="max-width:440px">'
       + '<div class="cfm-icon">\ud83d\udc4b</div>'
-      + '<h3 style="font-size:14px;color:#000050;margin:0 0 10px">Welkom bij Flowchart Studio</h3>'
+      + '<h3 style="font-size:15px;color:var(--heading);margin:0 0 10px">Welkom bij Flowchart Studio</h3>'
       + '<div class="cfm-msg">Wat is je naam? Dit verschijnt op de plannen die je opslaat, zodat collega\'s zien wie eraan gewerkt heeft.</div>'
-      + '<input id="userNameIn" type="text" placeholder="Voornaam Achternaam" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;color:#000050;font-weight:600;margin-bottom:18px" value="' + escapeAttr(getUserName()) + '">'
+      + '<input id="userNameIn" type="text" placeholder="Voornaam Achternaam" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:inherit;color:var(--text);background:var(--surface-2);font-weight:600;margin-bottom:18px" value="' + escapeAttr(getUserName()) + '">'
       + '<div class="cfm-btns"><button class="mbtn pri" id="userSaveBtn">Onthouden</button></div>'
       + '</div>';
     document.body.appendChild(wrap);
