@@ -1024,6 +1024,11 @@ html[data-theme="dark"] .active-file-pill{background:var(--surface-2);border-col
    LIGHT FRESHENING — topbar wordt wit, oppervlakken blijven licht
    ===================================================================== */
 html[data-theme="light"] body{background:var(--app-bg);color:var(--text)}
+/* Welkomstscherm blijft in beide thema's een donkere splash → tekst altijd
+   licht houden, anders erft de titel (.wtt) de donkere body-kleur en wordt
+   onleesbaar op de donkere achtergrond. */
+html[data-theme="light"] #W{color:#fff}
+html[data-theme="light"] #W .wtt{color:#fff}
 html[data-theme="light"] .topbar{background:var(--panel);border-bottom:1px solid var(--panel-border)}
 html[data-theme="light"] .topbar h1{color:var(--heading)}
 html[data-theme="light"] .topbar .badge{background:var(--primary-soft);color:var(--primary)}
