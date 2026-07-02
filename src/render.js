@@ -13,18 +13,31 @@
   // Funnel-filter voor het Gantt-overzicht. null = alles tonen; anders Set met
   // actieve fase-id's (incl. '' voor "geen fase ingevuld").
   let funnelFilter = null;
+  function fnStages() { return FS.state.funnelStages || []; }
+  function fnAllIds() { return [...fnStages().map((s) => s.id), '']; }
+  /** Funnelstappen van een campagne (meervoud; met migratie-fallback op oud veld). */
+  function campFunnels(c) {
+    if (Array.isArray(c.funnels)) return c.funnels;
+    return c.funnel ? [c.funnel] : [];
+  }
   function isFunnelVisible(stageId) {
     if (!funnelFilter) return true;
     return funnelFilter.has(stageId || '');
   }
+  /** Campagne zichtbaar zodra één van haar funnelstappen (of "geen") actief is. */
+  function isCampFunnelVisible(c) {
+    if (!funnelFilter) return true;
+    const fs = campFunnels(c).filter((id) => funnelStageInfo(id));
+    if (!fs.length) return funnelFilter.has('');
+    return fs.some((id) => funnelFilter.has(id));
+  }
   function setFunnelStage(stageId, on) {
     if (!funnelFilter) {
-      funnelFilter = new Set([...FS.constants.FUNNEL_STAGES.map((s) => s.id), '']);
+      funnelFilter = new Set(fnAllIds());
     }
     if (on) funnelFilter.add(stageId); else funnelFilter.delete(stageId);
     // Als alles weer aan staat: terug naar null (= ongekleurde "alle" status)
-    const allIds = [...FS.constants.FUNNEL_STAGES.map((s) => s.id), ''];
-    if (allIds.every((id) => funnelFilter.has(id))) funnelFilter = null;
+    if (fnAllIds().every((id) => funnelFilter.has(id))) funnelFilter = null;
     render();
   }
   function setFunnelAll(on) {
@@ -32,7 +45,7 @@
     render();
   }
   function funnelStageInfo(stageId) {
-    return FS.constants.FUNNEL_STAGES.find((s) => s.id === stageId);
+    return fnStages().find((s) => s.id === stageId);
   }
 
   /* ----- Merk-filter (sub-merken / geconsolideerde overzichten) -----
@@ -186,10 +199,9 @@
     }
     const selected = camp.id === FS.state.selectedCamp;
     const lockIc = camp.locked ? `<span style="margin-left:4px;font-size:10px" title="Vergrendeld">🔒</span>` : '';
-    const fst = funnelStageInfo(camp.funnel);
-    const fnBadge = fst
-      ? `<span class="g-funnel-bd" style="background:${a(fst.color)}" title="${a(fst.name)}">${a(fst.icon)}</span>`
-      : '';
+    const fnBadge = campFunnels(camp).map((id) => funnelStageInfo(id)).filter(Boolean).map((fst) =>
+      `<span class="g-funnel-bd" style="background:${a(fst.color)}" title="${a(fst.name)}">${fst.icon ? a(fst.icon) : a((fst.name || '?').slice(0, 1).toUpperCase())}</span>`,
+    ).join('');
     return `<div class="g-row g-camp${isExp ? ' g-exp' : ''}${selected ? ' g-sel' : ''}" data-ci="${a(camp.id)}">`
       + `<div class="g-label">`
       + `<span class="g-toggle" data-ci="${a(camp.id)}">${isExp ? '▼' : '▶'}</span>`
@@ -258,7 +270,8 @@
     // Media, fee en CTC zijn actual-leidend en identiek aan de kaarten bovenin.
     const totCreatie = c.totalCreatieFlights() + c.calcCreatie();
     const totTooling = c.totalToolingFlights() + c.calcTooling();
-    const rest = FS.state.jaarTotal - bd.ctc - totCreatie - totTooling;
+    const totUren = c.totalUrenFlights() + c.calcUren();
+    const rest = FS.state.jaarTotal - bd.ctc - totCreatie - totTooling - totUren;
     const feeArrow = isExcl ? '➕' : '➖';
     const feeNote = isExcl ? 'bovenop budget' : 'in budget verwerkt';
     let html = `<div class="g-row g-foot g-media"><div class="g-label">Netto Media</div><div class="g-budget">${esc(fC(bd.media))}</div><div class="g-bars"></div></div>`
@@ -269,6 +282,7 @@
     }
     html += `<div class="g-row g-foot g-crea"><div class="g-label">🎨 Creatie</div><div class="g-budget">${esc(fC(totCreatie))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-tool"><div class="g-label">🔧 Tooling</div><div class="g-budget">${esc(fC(totTooling))}</div><div class="g-bars"></div></div>`
+      + `<div class="g-row g-foot g-uren"><div class="g-label">⏱️ Uren</div><div class="g-budget">${esc(fC(totUren))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-jaar"><div class="g-label">Jaarbudget</div><div class="g-budget">${esc(fC(FS.state.jaarTotal))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-rest${rest < 0 ? ' neg' : ''}"><div class="g-label">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="g-budget">${esc(fC(rest))}</div><div class="g-bars"></div></div>`;
     return html;
@@ -307,7 +321,7 @@
       // Groepeer altijd: eerst losse campagnes, daarna Always-On. Zo voorkomen
       // we dat een willekeurig gesorteerd JSON-bestand meerdere sectiekoppen
       // produceert tussen de campagnes door.
-      const visible = camps.filter((c) => isFunnelVisible(c.funnel || ''));
+      const visible = camps.filter((c) => isCampFunnelVisible(c));
       const brands = getBrands();
       if (brands.length) {
         // ---- Merk-modus: groepeer campagnes per (sub-)merk ----
@@ -384,8 +398,9 @@
     const bd = c.budgetBreakdown();
     const totCreatie = c.totalCreatieFlights() + c.calcCreatie();
     const totTooling = c.totalToolingFlights() + c.calcTooling();
+    const totUren = c.totalUrenFlights() + c.calcUren();
     // Alle totalen zijn actual-leidend (vallen terug op planning zonder actuals).
-    const rest = FS.state.jaarTotal - bd.ctc - totCreatie - totTooling;
+    const rest = FS.state.jaarTotal - bd.ctc - totCreatie - totTooling - totUren;
     const hasActuals = FS.state.campaigns.some((cp) => (cp.segs || []).some((f) => f.actualized));
     const bj = FS.state.budgetJournal;
     const subtitle = bj.mods.length
@@ -395,7 +410,7 @@
     document.getElementById('summaryBar').innerHTML =
       `<div class="scard s-click" id="scJ"><div class="sl">Jaarbudget</div><div class="sv">${esc(fC(FS.state.jaarTotal))}</div><div class="sd">${esc(subtitle)}</div></div>`
       + `<div class="scard s-media"><div class="sl">Netto Media</div><div class="sv">${esc(fC(bd.media))}</div></div>`
-      + `<div class="scard s-fee s-click" id="scFee" title="Handling fee — klik voor instellingen"><div class="sl">Handling Fee</div><div class="sv">${esc(fC(bd.fee))}</div><div class="sd">${esc(feeSub)}</div></div>`
+      + `<div class="scard s-fee s-click" id="scFee" title="Handling fee / uren — klik voor instellingen"><div class="sl">Handling fee/uren</div><div class="sv">${esc(fC(bd.fee + totUren))}</div><div class="sd">${esc(feeSub)}</div></div>`
       + `<div class="scard s-crea s-click" id="scC"><div class="sl">Creatie</div><div class="sv">${esc(fC(totCreatie))}</div></div>`
       + `<div class="scard s-tool s-click" id="scT"><div class="sl">Tooling</div><div class="sv">${esc(fC(totTooling))}</div></div>`
       + `<div class="scard s-rest"><div class="sl">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="sv" style="color:${rest < 0 ? '#DC2626' : '#059669'}">${esc(fC(rest))}</div></div>`;
@@ -431,7 +446,7 @@
     let html = `<span class="leg-lbl">Funnel</span>`;
     const all = !funnelFilter;
     html += `<button class="g-funnel-pill g-funnel-all${all ? ' on' : ''}" data-fs="__all" title="Alle fases tonen">Alle</button>`;
-    FS.constants.FUNNEL_STAGES.forEach((st) => {
+    FS.state.funnelStages.forEach((st) => {
       const on = isFunnelVisible(st.id);
       html += `<button class="g-funnel-pill${on ? '' : ' off'}" data-fs="${a(st.id)}" title="${a(st.name)}"><span class="g-fn-dot" style="background:${a(st.color)}"></span>${esc(st.name)}</button>`;
     });

@@ -1133,3 +1133,69 @@ html[data-theme="dark"] .camp-tool{color:#93c5fd}
 .g-empty-cta:hover{filter:brightness(1.07);transform:translateY(-2px)}
 
 /* ===== END FEEDBACK FIXES ===== */
+
+/* =====================================================================
+   FEEDBACK v15 — Uren begroting (paars, spiegelt Creatie/Tooling)
+   ===================================================================== */
+.scard.s-uren{border-left-color:#7C3AED}
+html[data-theme="dark"] .scard.s-uren{border-left-color:#a78bfa}
+.ss-ic-ur{background:#EDE9FE}
+html[data-theme="dark"] .ss-ic-ur{background:#2a1f4d}
+.g-row.g-uren .g-label,.g-row.g-uren .g-budget{background:#F5F3FF;color:#6D28D9;font-weight:700;font-size:8px}
+.gantt .g-row.g-uren .g-label,.gantt .g-row.g-uren .g-budget{font-size:calc(8px * var(--gz))}
+html[data-theme="dark"] .gantt .g-row.g-uren .g-label,
+html[data-theme="dark"] .gantt .g-row.g-uren .g-budget{background:var(--surface);color:#c4b5fd}
+.mf-field input.mf-uren{border-color:#DDD6FE;background:#F5F3FF;color:#5B21B6}
+.mf-field input.mf-uren:focus{border-color:#7C3AED;box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+html[data-theme="dark"] .mf-field input.mf-uren{background:rgba(124,58,237,.14);border-color:rgba(124,58,237,.45);color:#ddd6fe}
+.mf-field label.mf-lbl-uren{color:#6D28D9}
+.camp-uren{color:#6D28D9}
+html[data-theme="dark"] .mf-field label.mf-lbl-uren,
+html[data-theme="dark"] .camp-uren{color:#c4b5fd}
+
+/* =====================================================================
+   FEEDBACK v15 — Instelbaar funnelmodel (editor + pickers)
+   ===================================================================== */
+.ss-ic-fn{background:#E0F2FE}
+html[data-theme="dark"] .ss-ic-fn{background:#0b2a3a}
+.fn-edit{display:flex;flex-direction:column;gap:6px}
+.fn-edit-row{display:flex;align-items:center;gap:6px}
+.fn-color{width:36px;height:30px;padding:0;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer;flex:0 0 auto}
+.fn-name{flex:1;min-width:0;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)}
+.fn-name:focus{outline:none;border-color:var(--primary)}
+.fn-mv,.fn-del{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:10px;color:var(--text-2);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.fn-mv:hover:not(:disabled),.fn-del:hover{background:var(--surface-2)}
+.fn-mv:disabled{opacity:.35;cursor:default}
+.fn-del:hover{background:#FEE2E2;color:#DC2626;border-color:#FCA5A5}
+/* Funnel-picker (chips) in campagne- en flight-modal */
+.fn-picker{display:flex;flex-wrap:wrap;gap:6px;padding-top:2px}
+.fn-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:15px;border:1.5px solid var(--border);background:var(--surface);color:var(--text-2);font-size:11px;font-weight:600;cursor:pointer;user-select:none;transition:all .12s}
+.fn-chip:hover{border-color:var(--primary)}
+.fn-chip .fn-chip-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.fn-chip.on{color:#fff;border-color:transparent}
+.fn-chip.on .fn-chip-dot{background:rgba(255,255,255,.9)!important}
+.fn-chip input{display:none}
+.fn-picker-empty{font-size:11px;color:var(--text-3);font-style:italic;padding:2px 0}
+
+/* =====================================================================
+   FEEDBACK v15 — Inkoopprotocol (buying protocol) per kanaal in tactic
+   ===================================================================== */
+.ch-mf select{border:1px solid #D1D5DB;border-radius:3px;padding:3px 5px;font-size:9px;font-family:inherit;width:100%;background:#fff;color:#0C1726;cursor:pointer}
+.ch-mf select:focus{border-color:#0026C5;outline:none}
+.ch-det .ch-bp{grid-column:1/-1}
+.ch-det .ch-bp select{font-weight:700;color:#0026C5}
+html[data-theme="dark"] .ch-mf select{background:var(--surface);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ch-det .ch-bp select{color:#93c5fd}
+
+/* =====================================================================
+   FEEDBACK v16 — Tactic = 1 kanaal (vereenvoudigd) + samengevoegde fee/uren
+   ===================================================================== */
+.tac-ch{margin-top:4px}
+.tac-ch select#mTchannel{width:100%;border:1px solid #D1D5DB;border-radius:5px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:#0C1726;cursor:pointer}
+.tac-ch select#mTchannel:focus{border-color:#0026C5;outline:none}
+html[data-theme="dark"] .tac-ch select#mTchannel{background:var(--surface);border-color:var(--border);color:var(--text)}
+.tac-fee-note{margin:8px 2px 2px;font-size:10px;font-weight:600;color:#7C3AED}
+html[data-theme="dark"] .tac-fee-note{color:#c4b5fd}
+.tac-kpis{margin-top:12px}
+.tac-kpis-lbl{display:block;font-size:11px;font-weight:700;color:var(--heading);margin-bottom:6px}
+.tac-kpis-opt{font-weight:400;opacity:.5}

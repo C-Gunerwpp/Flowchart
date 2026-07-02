@@ -22,10 +22,18 @@
     };
   }
 
+  /** Standaard-funnelmodel. Instelbaar per plan; hier de fallback zodat nieuwe
+   *  of oudere bestanden altijd een werkend model hebben. */
+  function defaultFunnelStages() {
+    return C.FUNNEL_STAGES.map((s) => ({ id: s.id, name: s.name, color: s.color, icon: s.icon || '' }));
+  }
+
   FS.state = {
     budgetJournal: { base: C.DEFAULT_BASE_BUDGET, mods: [] },
     creatieJournal: { mods: [] },
     toolingJournal: { mods: [] },
+    urenJournal: { mods: [] },
+    funnelStages: defaultFunnelStages(),
     jaarTotal: C.DEFAULT_BASE_BUDGET,
     year: C.DEFAULT_YEAR,
     fees: {},
@@ -50,12 +58,15 @@
     return out;
   }
   FS.state.mergeSettings = mergeSettings;
+  FS.state.defaultFunnelStages = defaultFunnelStages;
 
   FS.state.reset = function reset() {
     const s = FS.state;
     s.budgetJournal = { base: C.DEFAULT_BASE_BUDGET, mods: [] };
     s.creatieJournal = { mods: [] };
     s.toolingJournal = { mods: [] };
+    s.urenJournal = { mods: [] };
+    s.funnelStages = defaultFunnelStages();
     s.jaarTotal = C.DEFAULT_BASE_BUDGET;
     s.year = C.DEFAULT_YEAR;
     s.fees = {};

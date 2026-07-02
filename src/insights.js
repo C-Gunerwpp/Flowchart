@@ -16,6 +16,7 @@
   const TABS = [
     { id: 'overview', label: '📊 Overzicht' },
     { id: 'channels', label: '📡 Kanalen' },
+    { id: 'buying', label: '🛒 Inkoop' },
     { id: 'funnel', label: '🪜 Funnel & Status' },
     { id: 'actuals', label: '📐 Planned vs. Actual' },
   ];
@@ -30,13 +31,16 @@
       from: `${y}-01-01`,
       to: `${y}-12-31`,
       channels: new Set(FS.constants.CHANNELS.map((c) => c.id)),
-      funnel: new Set([...FS.constants.FUNNEL_STAGES.map((s) => s.id), '']),
+      funnel: new Set([...FS.state.funnelStages.map((s) => s.id), '']),
     };
     filtersYear = y;
   }
 
   function campMatchesFunnel(c) {
-    return filters.funnel.has(c.funnel || '');
+    const fs = (Array.isArray(c.funnels) ? c.funnels : (c.funnel ? [c.funnel] : []))
+      .filter((id) => FS.state.funnelStages.some((st) => st.id === id));
+    if (!fs.length) return filters.funnel.has('');
+    return fs.some((id) => filters.funnel.has(id));
   }
 
   /* ----- Periode-helpers ----- */
@@ -108,6 +112,48 @@
     return totals;
   }
 
+  /** Budget per inkoopprotocol (buying protocol), pro-rata over de periode.
+   *  Elke tactic heeft precies één kanaal; het protocol staat in t.bp[kanaal].
+   *  Tactics zonder gekozen protocol vallen onder '' (— Geen protocol —).
+   *  Geeft { protocol: { value, channels:{chId:value} } } terug. */
+  function aggregateBuyingProtocols() {
+    ensureFilters();
+    const map = {};
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
+      c.segs.forEach((f) =>
+        (f.tac || []).forEach((t) => {
+          const w = periodWeight(t.sd, t.ed);
+          if (w <= 0) return;
+          for (const k in (t.ch || {})) {
+            if (!filters.channels.has(k)) continue;
+            const val = (t.ch[k] || 0) * w;
+            if (val <= 0) continue;
+            const bp = (t.bp && t.bp[k]) || '';
+            if (!map[bp]) map[bp] = { value: 0, channels: {} };
+            map[bp].value += val;
+            map[bp].channels[k] = (map[bp].channels[k] || 0) + val;
+          }
+        }),
+      );
+    });
+    return map;
+  }
+
+  /** Gesorteerde lijst van inkoopprotocollen met kleur (grijs voor "geen"). */
+  function buyingProtocolEntries() {
+    const map = aggregateBuyingProtocols();
+    let ci = 0;
+    const entries = Object.keys(map).map((k) => ({
+      key: k,
+      label: k || '— Geen protocol —',
+      value: map[k].value,
+      channels: map[k].channels,
+      color: k ? CHART_COLORS[(ci++) % CHART_COLORS.length] : '#94A3B8',
+    }));
+    return entries.sort((a, b) => b.value - a.value);
+  }
+
   /** Verdeel een bedrag pro-rata over maanden tussen sd en ed (inclusief). */
   function spreadOverMonths(sd, ed, amount, year, buckets) {
     if (!sd || !ed || !amount) return;
@@ -134,6 +180,7 @@
     const media = new Array(12).fill(0);
     const creatie = new Array(12).fill(0);
     const tooling = new Array(12).fill(0);
+    const uren = new Array(12).fill(0);
     FS.state.campaigns.forEach((c) => {
       if (!campMatchesFunnel(c)) return;
       c.segs.forEach((f) => {
@@ -149,10 +196,11 @@
         if (rf) {
           if (f.cb) spreadOverMonths(rf[0], rf[1], f.cb, year, creatie);
           if (f.tc) spreadOverMonths(rf[0], rf[1], f.tc, year, tooling);
+          if (f.ub) spreadOverMonths(rf[0], rf[1], f.ub, year, uren);
         }
       });
     });
-    return { media, creatie, tooling };
+    return { media, creatie, tooling, uren };
   }
 
   function aggregateSectionSplit() {
@@ -240,7 +288,7 @@
   function aggregateFunnel() {
     ensureFilters();
     const totals = {};
-    FS.constants.FUNNEL_STAGES.forEach((st) => { totals[st.id] = 0; });
+    FS.state.funnelStages.forEach((st) => { totals[st.id] = 0; });
     totals[''] = 0;
     FS.state.campaigns.forEach((c) => {
       if (!campMatchesFunnel(c)) return;
@@ -249,8 +297,14 @@
         const w = periodWeight(f.sd, f.ed);
         if (w > 0) total += FS.calc.flightBudget(f) * w;
       });
-      const key = c.funnel || '';
-      totals[key] = (totals[key] || 0) + total;
+      const fs = (Array.isArray(c.funnels) ? c.funnels : (c.funnel ? [c.funnel] : []))
+        .filter((id) => FS.state.funnelStages.some((st) => st.id === id));
+      if (!fs.length) {
+        totals[''] = (totals[''] || 0) + total;
+      } else {
+        const share = total / fs.length;
+        fs.forEach((id) => { totals[id] = (totals[id] || 0) + share; });
+      }
     });
     return totals;
   }
@@ -330,7 +384,7 @@
   const MONTH_LABELS = ['Jan', 'Feb', 'Mrt', 'Apr', 'Mei', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 
   function stackedBars(data) {
-    const max = Math.max(...data.media.map((m, i) => m + data.creatie[i] + data.tooling[i]), 1);
+    const max = Math.max(...data.media.map((m, i) => m + data.creatie[i] + data.tooling[i] + data.uren[i]), 1);
     const w = 560;
     const h = 200;
     const padL = 50;
@@ -340,23 +394,24 @@
     const innerW = w - padL - padR;
     const innerH = h - padT - padB;
     const bw = innerW / 12;
-    const colors = { media: '#0026C5', creatie: '#EC4899', tooling: '#1E40AF' };
+    const colors = { media: '#0026C5', creatie: '#EC4899', tooling: '#1E40AF', uren: '#7C3AED' };
     let bars = '';
     let labels = '';
     for (let i = 0; i < 12; i++) {
       const mv = data.media[i];
       const cv = data.creatie[i];
       const tv = data.tooling[i];
+      const uv = data.uren[i];
       const x = padL + i * bw + bw * 0.15;
       const bwIn = bw * 0.7;
       let yCur = padT + innerH;
-      [['media', mv], ['creatie', cv], ['tooling', tv]].forEach(([k, v]) => {
+      [['media', mv], ['creatie', cv], ['tooling', tv], ['uren', uv]].forEach(([k, v]) => {
         if (v <= 0) return;
         const segH = (v / max) * innerH;
         yCur -= segH;
         bars += `<rect x="${x}" y="${yCur}" width="${bwIn}" height="${segH}" fill="${colors[k]}" rx="2"><title>${MONTH_LABELS[i]} – ${k}: ${esc(fC(v))}</title></rect>`;
       });
-      const total = mv + cv + tv;
+      const total = mv + cv + tv + uv;
       labels += `<text x="${x + bwIn / 2}" y="${padT + innerH + 14}" text-anchor="middle" font-size="9" fill="#6B7280">${MONTH_LABELS[i]}</text>`;
       if (total > 0) {
         labels += `<text x="${x + bwIn / 2}" y="${padT + innerH + 24}" text-anchor="middle" font-size="8" fill="#000050" font-weight="700">${esc(fK(total))}</text>`;
@@ -375,6 +430,7 @@
       + `<div class="ins-leg-row"><span class="ins-leg-sw" style="background:${colors.media}"></span><span class="ins-leg-nm">Media</span></div>`
       + `<div class="ins-leg-row"><span class="ins-leg-sw" style="background:${colors.creatie}"></span><span class="ins-leg-nm">Creatie</span></div>`
       + `<div class="ins-leg-row"><span class="ins-leg-sw" style="background:${colors.tooling}"></span><span class="ins-leg-nm">Tooling</span></div>`
+      + `<div class="ins-leg-row"><span class="ins-leg-sw" style="background:${colors.uren}"></span><span class="ins-leg-nm">Uren</span></div>`
       + `</div>`;
     return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-height:240px">${axis}${bars}${labels}</svg>${legend}`;
   }
@@ -447,8 +503,8 @@
 
   function funnelChart() {
     const totals = aggregateFunnel();
-    const entries = FS.constants.FUNNEL_STAGES.map((st) => ({
-      label: `${st.icon} ${st.name}`, value: totals[st.id] || 0, color: st.color,
+    const entries = FS.state.funnelStages.map((st) => ({
+      label: `${st.icon ? st.icon + ' ' : ''}${st.name}`, value: totals[st.id] || 0, color: st.color,
     }));
     entries.push({ label: '— Geen funnelfase —', value: totals[''] || 0, color: '#94A3B8' });
     return barList(entries);
@@ -460,6 +516,35 @@
       label: st.name, value: totals[st.id] || 0, color: st.color || '#0026C5',
     }));
     return barList(entries);
+  }
+
+  /** Tabel: budget + aandeel + betrokken kanalen per inkoopprotocol. */
+  function buyingProtocolTable(entries) {
+    const valid = entries.filter((e) => e.value > 0);
+    if (!valid.length) {
+      return `<div class="ins-empty">Nog geen inkoopprotocollen — kies een protocol per tactic.</div>`;
+    }
+    const sum = valid.reduce((a, e) => a + e.value, 0);
+    let tbody = '';
+    valid.forEach((e) => {
+      const share = ((e.value / sum) * 100).toFixed(1);
+      const chNames = Object.keys(e.channels)
+        .sort((a, b) => e.channels[b] - e.channels[a])
+        .map((chId) => {
+          const ch = FS.constants.CHANNELS.find((c) => c.id === chId);
+          return `${ch ? ch.icon + ' ' + ch.name : chId} (${fK(e.channels[chId])})`;
+        }).join(', ');
+      const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${e.color};margin-right:6px;vertical-align:middle"></span>`;
+      tbody += `<tr><td>${dot}<strong>${esc(e.label)}</strong></td>`
+        + `<td class="num">${esc(fC(e.value))}</td>`
+        + `<td class="num">${share}%</td>`
+        + `<td style="font-size:9px;color:#475569">${esc(chNames)}</td></tr>`;
+    });
+    return `<table class="ins-table">`
+      + `<thead><tr><th>Inkoopprotocol</th><th class="num">Budget</th><th class="num">Aandeel</th><th>Kanalen</th></tr></thead>`
+      + `<tbody>${tbody}</tbody>`
+      + `<tfoot><tr><td><strong>Totaal</strong></td><td class="num"><strong>${esc(fC(sum))}</strong></td>`
+      + `<td class="num"><strong>100%</strong></td><td></td></tr></tfoot></table>`;
   }
 
   /** Tabel: planned vs werkelijk per campagne (met uitklapbare flights). */
@@ -529,15 +614,17 @@
     const filtMedia = spend.media.reduce((a, v) => a + v, 0);
     const filtCreatie = spend.creatie.reduce((a, v) => a + v, 0);
     const filtTooling = spend.tooling.reduce((a, v) => a + v, 0);
+    const filtUren = spend.uren.reduce((a, v) => a + v, 0);
 
     // Full-year referenties (voor jaarbudget / fee / rest)
     const totalFee = FS.calc.totalFee();
     const totCreatie = FS.calc.totalCreatieFlights() + FS.calc.calcCreatie();
     const totTooling = FS.calc.totalToolingFlights() + FS.calc.calcTooling();
+    const totUren = FS.calc.totalUrenFlights() + FS.calc.calcUren();
     const jaar = s.jaarTotal;
     // Resterend volgt de actual-leidende besteding (geactualiseerde flights tellen
     // mee met hun werkelijk bestede budget).
-    const rest = jaar - FS.calc.grandTotalActual() - totCreatie - totTooling;
+    const rest = jaar - FS.calc.grandTotalActual() - totCreatie - totTooling - totUren;
 
     const numCamps = s.campaigns.length;
     const numFlights = s.campaigns.reduce((a, c) => a + c.segs.length, 0);
@@ -546,7 +633,7 @@
 
     const totalChan = FS.constants.CHANNELS.length;
     const activeChan = filters.channels.size;
-    const totalFn = FS.constants.FUNNEL_STAGES.length + 1; // +1 voor "geen"
+    const totalFn = FS.state.funnelStages.length + 1; // +1 voor "geen"
     const activeFn = filters.funnel.size;
     const isFiltered = filters.from !== `${s.year}-01-01`
       || filters.to !== `${s.year}-12-31`
@@ -560,10 +647,10 @@
     }).join('');
 
     // Funnel-chips
-    const funnelBoxes = FS.constants.FUNNEL_STAGES.map((st) => {
+    const funnelBoxes = FS.state.funnelStages.map((st) => {
       const on = filters.funnel.has(st.id);
       const bg = on ? `background:${esc(st.color)};color:#fff;border-color:${esc(st.color)};` : '';
-      return `<label class="ins-funnel${on ? '' : ' off'}" style="${bg}"><input type="checkbox" data-fn="${esc(st.id)}"${on ? ' checked' : ''} style="display:none"> ${esc(st.icon)} ${esc(st.name)}</label>`;
+      return `<label class="ins-funnel${on ? '' : ' off'}" style="${bg}"><input type="checkbox" data-fn="${esc(st.id)}"${on ? ' checked' : ''} style="display:none"> ${st.icon ? esc(st.icon) + ' ' : ''}${esc(st.name)}</label>`;
     }).join('');
     const noneOn = filters.funnel.has('');
     const funnelNone = `<label class="ins-funnel${noneOn ? '' : ' off'}"><input type="checkbox" data-fn=""${noneOn ? ' checked' : ''} style="display:none"> — geen —</label>`;
@@ -621,6 +708,7 @@
         + kpi(isFiltered ? '📺 Media (periode)' : '📺 Media (campagnes)', fC(filtMedia))
         + kpi(isFiltered ? '🎨 Creatie (periode)' : '🎨 Creatie', fC(filtCreatie))
         + kpi(isFiltered ? '🔧 Tooling (periode)' : '🔧 Tooling', fC(filtTooling))
+        + kpi(isFiltered ? '⏱️ Uren (periode)' : '⏱️ Uren', fC(filtUren))
         + kpi('💰 Fee totaal', fC(totalFee))
         + kpi(rest >= 0 ? '✓ Restbudget (jaar)' : '⚠ Overschrijding (jaar)', fC(Math.abs(rest)), rest >= 0 ? 'pos' : 'neg')
         + kpi('📋 Campagnes', String(numCamps))
@@ -632,6 +720,18 @@
     } else if (activeTab === 'channels') {
       h += section('📊 Kanaalverdeling (budget)', donut(aggregateChannels(), FS.constants.CHANNELS));
       h += section(`📈 Spend curve (per maand · ${s.year})`, stackedBars(spend));
+    } else if (activeTab === 'buying') {
+      const bpEntries = buyingProtocolEntries();
+      const withBp = bpEntries.filter((e) => e.key).reduce((a, e) => a + e.value, 0);
+      const withoutBp = bpEntries.filter((e) => !e.key).reduce((a, e) => a + e.value, 0);
+      const nProto = bpEntries.filter((e) => e.key && e.value > 0).length;
+      h += `<div class="ins-grid">`
+        + kpi('🛒 Inkoopprotocollen', String(nProto))
+        + kpi('📦 Met protocol', fC(withBp))
+        + kpi(withoutBp > 0 ? '❓ Zonder protocol' : '✓ Zonder protocol', fC(withoutBp), withoutBp > 0 ? 'neg' : 'pos')
+        + `</div>`;
+      h += section('🛒 Budget per inkoopprotocol', barList(bpEntries));
+      h += section('📋 Inkoopprotocol per kanaal', buyingProtocolTable(bpEntries));
     } else if (activeTab === 'funnel') {
       h += section('🪜 Budget per funnelfase', funnelChart());
       h += section('🚦 Budget per status', statusChart());
@@ -725,7 +825,7 @@
 
     const fnAll = document.getElementById('insFnAll');
     if (fnAll) fnAll.addEventListener('click', () => {
-      filters.funnel = new Set([...FS.constants.FUNNEL_STAGES.map((s) => s.id), '']);
+      filters.funnel = new Set([...FS.state.funnelStages.map((s) => s.id), '']);
       render();
     });
     const fnNone = document.getElementById('insFnNone');
@@ -753,9 +853,11 @@
     const totalFee = FS.calc.totalFee();
     const totCreatie = FS.calc.totalCreatieFlights() + FS.calc.calcCreatie();
     const totTooling = FS.calc.totalToolingFlights() + FS.calc.calcTooling();
-    const rest = s.jaarTotal - grandTotal - totCreatie - totTooling;
+    const totUren = FS.calc.totalUrenFlights() + FS.calc.calcUren();
+    const rest = s.jaarTotal - grandTotal - totCreatie - totTooling - totUren;
 
     const channelHtml = donut(aggregateChannels(), FS.constants.CHANNELS);
+    const buyingHtml = buyingProtocolTable(buyingProtocolEntries());
     const spendHtml = stackedBars(aggregateMonthlySpend());
     const splitHtml = splitBar(aggregateSectionSplit());
     const actuals = collectActuals();
@@ -769,13 +871,14 @@
       const cb = FS.calc.campaignBudget(c);
       campRows += `<tr class="r-camp"><td colspan="2"><strong>${esc(c.label)}</strong> <span style="color:#6B7280">(${c.sec === 'ao' ? 'Always-On' : 'Campagne'})</span></td>`
         + `<td class="num"><strong>${esc(fC(cb))}</strong></td>`
-        + `<td colspan="2"></td></tr>`;
+        + `<td colspan="3"></td></tr>`;
       c.segs.forEach((f) => {
         campRows += `<tr><td style="padding-left:18px">✈️ ${esc(f.n || 'Flight')}</td>`
           + `<td>W${FS.utils.dateToWeek(f.sd)}–W${FS.utils.dateToWeek(f.ed)}</td>`
           + `<td class="num">${esc(fC(FS.calc.flightBudget(f)))}</td>`
           + `<td class="num">${f.cb ? esc(fC(f.cb)) : '–'}</td>`
-          + `<td class="num">${f.tc ? esc(fC(f.tc)) : '–'}</td></tr>`;
+          + `<td class="num">${f.tc ? esc(fC(f.tc)) : '–'}</td>`
+          + `<td class="num">${f.ub ? esc(fC(f.ub)) : '–'}</td></tr>`;
       });
     });
 
@@ -832,20 +935,24 @@
   <div class="kpi"><div class="l">Handling Fee</div><div class="v">${esc(fC(totalFee))}</div></div>
   <div class="kpi"><div class="l">Creatie</div><div class="v">${esc(fC(totCreatie))}</div></div>
   <div class="kpi"><div class="l">Tooling</div><div class="v">${esc(fC(totTooling))}</div></div>
+  <div class="kpi"><div class="l">Uren</div><div class="v">${esc(fC(totUren))}</div></div>
   <div class="kpi ${rest >= 0 ? 'pos' : 'neg'}"><div class="l">${rest >= 0 ? 'Restbudget' : 'Overschrijding'}</div><div class="v">${esc(fC(Math.abs(rest)))}</div></div>
 </div>
 
 <h2>📊 Kanaalverdeling</h2>
 ${channelHtml}
 
-<h2>📈 Spend curve per maand</h2>
+<h2>� Budget per inkoopprotocol</h2>
+${buyingHtml}
+
+<h2>�📈 Spend curve per maand</h2>
 ${spendHtml}
 
 <h2>🔁 Always-On vs. losse campagnes</h2>
 ${splitHtml}
 
 <h2>📋 Campagne-overzicht</h2>
-<table><thead><tr><th>Item</th><th>Periode</th><th class="num">Budget</th><th class="num">Creatie</th><th class="num">Tooling</th></tr></thead><tbody>${campRows}</tbody></table>
+<table><thead><tr><th>Item</th><th>Periode</th><th class="num">Budget</th><th class="num">Creatie</th><th class="num">Tooling</th><th class="num">Uren</th></tr></thead><tbody>${campRows}</tbody></table>
 
 ${hasFlightActuals ? `<h2>📐 Planned vs. werkelijk — per campagne</h2>${campActHtml}` : ''}
 

@@ -36,6 +36,18 @@
     return total;
   }
 
+  function calcUren() {
+    let total = 0;
+    (FS.state.urenJournal.mods || []).forEach((m) => { total += m.a; });
+    return total;
+  }
+
+  function totalUrenFlights() {
+    let total = 0;
+    FS.state.campaigns.forEach((c) => c.segs.forEach((f) => { total += f.ub || 0; }));
+    return total;
+  }
+
   function flightBudgetFromTactics(flight) {
     if (!flight.tac || !flight.tac.length) return 0;
     return flight.tac.reduce((a, t) => a + t.b, 0);
@@ -206,8 +218,10 @@
     calcJaar,
     calcCreatie,
     calcTooling,
+    calcUren,
     totalCreatieFlights,
     totalToolingFlights,
+    totalUrenFlights,
     flightBudgetFromTactics,
     flightBudget,
     campaignFlightSum,

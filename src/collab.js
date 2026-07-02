@@ -22,6 +22,8 @@
       budgetJournal: s.budgetJournal,
       creatieJournal: s.creatieJournal,
       toolingJournal: s.toolingJournal,
+      urenJournal: s.urenJournal,
+      funnelStages: s.funnelStages,
       nextId: s.nextId,
     };
   }
@@ -51,6 +53,8 @@
     if (data.budgetJournal) FS.state.budgetJournal = JSON.parse(JSON.stringify(data.budgetJournal));
     if (data.creatieJournal) FS.state.creatieJournal = JSON.parse(JSON.stringify(data.creatieJournal));
     if (data.toolingJournal) FS.state.toolingJournal = JSON.parse(JSON.stringify(data.toolingJournal));
+    if (data.urenJournal) FS.state.urenJournal = JSON.parse(JSON.stringify(data.urenJournal));
+    if (data.funnelStages) FS.state.funnelStages = JSON.parse(JSON.stringify(data.funnelStages));
     if (data.nextId !== undefined) FS.state.nextId = data.nextId;
     FS.calc.calcJaar();
   }

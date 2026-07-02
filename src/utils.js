@@ -160,12 +160,17 @@
     }
     campaigns.forEach((camp) => {
       if (camp.budget == null) camp.budget = 0;
+      // Funnel: oud model had 1 fase (camp.funnel). Nieuw model = meerdere
+      // (camp.funnels[]). Migreer bestaande waarde eenmalig.
+      if (!Array.isArray(camp.funnels)) camp.funnels = camp.funnel ? [camp.funnel] : [];
       (camp.segs || []).forEach((f) => {
         if (!f.sd) f.sd = f.s ? weekToDate(f.s) : '2026-01-05';
         if (!f.ed) f.ed = f.e ? weekToDate(f.e) : f.sd;
         if (f.cb == null) f.cb = 0;
         if (f.tc == null) f.tc = 0;
+        if (f.ub == null) f.ub = 0;
         if (f.b == null) f.b = 0;
+        if (!Array.isArray(f.funnels)) f.funnels = [];
         if (!f.tac) {
           if (f.ch && Object.keys(f.ch).length) {
             f.tac = [{ n: f.n || '', sd: f.sd, ed: f.ed, b: f.b, ch: f.ch, col: f.col || '', nt: '', met: {} }];
@@ -179,6 +184,8 @@
           if (!t.ed) t.ed = t.e ? weekToDate(t.e) : f.ed;
           if (!t.ch) t.ch = {};
           if (!t.met) t.met = {};
+          if (t.funnel == null) t.funnel = '';
+          if (!t.bp) t.bp = {};
         });
         clampTactics(f);
       });

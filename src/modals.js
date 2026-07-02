@@ -10,6 +10,51 @@
     formatK: fK, pickColor, statusColor, dateToWeek, today } = FS.utils;
   const { palHTML } = FS.render;
 
+  /* ------- Funnel-helpers (instelbaar model + cascade) ------- */
+  function fnStages() { return FS.state.funnelStages || []; }
+  function fnIds() { return fnStages().map((x) => x.id); }
+  function fnInfo(id) { return fnStages().find((x) => x.id === id); }
+  /** Toegestane funnelstappen op flight-niveau: campagne-selectie (indien
+   *  ingevuld) beperkt, anders alle stappen. */
+  function allowedFlightFunnels(camp) {
+    const cf = (camp.funnels || []).filter((id) => fnInfo(id));
+    return cf.length ? cf : fnIds();
+  }
+  /** Toegestane funnelstap op tactic-niveau: flight-selectie beperkt, anders
+   *  campagne-selectie, anders alle stappen. */
+  function allowedTacticFunnels(camp, flight) {
+    const ff = (flight.funnels || []).filter((id) => fnInfo(id));
+    if (ff.length) return ff;
+    return allowedFlightFunnels(camp);
+  }
+  /** Houd flight- en tactic-funnels binnen hun ouder (en verwijder stappen die
+   *  niet meer bestaan). Lege ouder = geen beperking. */
+  function clampFunnelHierarchy(camp) {
+    const ids = fnIds();
+    camp.funnels = (camp.funnels || []).filter((id) => ids.includes(id));
+    (camp.segs || []).forEach((f) => {
+      const allowF = allowedFlightFunnels(camp);
+      f.funnels = (f.funnels || []).filter((id) => allowF.includes(id));
+      (f.tac || []).forEach((t) => {
+        const allowT = allowedTacticFunnels(camp, f);
+        if (t.funnel && !allowT.includes(t.funnel)) t.funnel = '';
+      });
+    });
+  }
+  /** Chips voor meervoudige funnelselectie (campagne + flight). */
+  function funnelChips(selected, allowedIds, groupId) {
+    const stages = fnStages().filter((st) => allowedIds.includes(st.id));
+    if (!stages.length) return `<div class="fn-picker-empty">Geen funnelstappen beschikbaar — stel ze in via Instellingen › Funnelmodel.</div>`;
+    const sel = new Set(selected || []);
+    return `<div class="fn-picker" id="${groupId}">` + stages.map((st) => {
+      const on = sel.has(st.id);
+      const ic = st.icon ? `${esc(st.icon)} ` : '';
+      return `<label class="fn-chip${on ? ' on' : ''}"${on ? ` style="background:${a(st.color)}"` : ''}>`
+        + `<input type="checkbox" data-fn="${a(st.id)}"${on ? ' checked' : ''}>`
+        + `<span class="fn-chip-dot" style="background:${a(st.color)}"></span>${ic}${esc(st.name)}</label>`;
+    }).join('') + `</div>`;
+  }
+
   /* ------- Custom confirm dialog ------- */
   let confirmCallback = null;
 
@@ -162,14 +207,9 @@
       + `</select></div></div>`;
     h += `<div class="mf-row"><div class="mf-field"><label>Budget<span class="lbl-help" title="Laat op 0 staan om automatisch het totaal van de flights te gebruiken.">?</span></label>`
       + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mCbudget" type="number" value="${camp.budget || 0}" step="1000"></span></div>`
-      + `<div class="mf-field"><label>Funnelfase<span class="lbl-help" title="In welke fase van de funnel speelt deze campagne zich af?">?</span></label>`
-      + `<select id="mCfunnel">`
-      + `<option value=""${!camp.funnel ? ' selected' : ''}>— geen —</option>`
-      + FS.constants.FUNNEL_STAGES.map((st) =>
-        `<option value="${a(st.id)}"${camp.funnel === st.id ? ' selected' : ''}>${a(st.icon)} ${a(st.name)}</option>`,
-      ).join('')
-      + `</select></div>`
       + `<div class="mf-field"><label>Kleur</label>${palHTML(camp.col)}</div></div>`;
+    h += `<div class="mf-row"><div class="mf-field" style="flex:1"><label>Funnelfases<span class="lbl-help" title="Kies één of meer funnelstappen. Flights en tactics kunnen alleen binnen deze selectie kiezen; leeg = geen beperking.">?</span></label>`
+      + funnelChips(camp.funnels, fnIds(), 'mCfunnels') + `</div></div>`;
     h += `<div class="mf-actions">`
       + `<button class="mbtn" id="mCup">▲</button>`
       + `<button class="mbtn" id="mCdn">▼</button>`
@@ -194,6 +234,7 @@
           + (f.actualized ? `<span style="color:#9A3412" title="Werkelijk besteed">💵${esc(fK(f.actualBudget || 0))}</span>` : '')
           + (f.cb ? `<span class="camp-crea">🎨${esc(fK(f.cb))}</span>` : '')
           + (f.tc ? `<span class="camp-tool">🔧${esc(fK(f.tc))}</span>` : '')
+          + (f.ub ? `<span class="camp-uren">⏱️${esc(fK(f.ub))}</span>` : '')
           + `<span>W${dateToWeek(f.sd)}–W${dateToWeek(f.ed)}</span>`
           + `<span>${f.tac ? f.tac.length : 0} tac</span></div></div>`
           + `<div style="color:#C5CAE9;font-size:18px">›</div></div>`;
@@ -269,7 +310,14 @@
       + `<div class="mf-field"><label class="mf-lbl-crea">🎨 Creatie</label>`
       + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFcb" class="mf-crea" type="number" value="${f.cb || 0}" step="100"></span></div>`
       + `<div class="mf-field"><label class="mf-lbl-tool">🔧 Tooling</label>`
-      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFtc" class="mf-tool" type="number" value="${f.tc || 0}" step="100"></span></div></div>`;
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFtc" class="mf-tool" type="number" value="${f.tc || 0}" step="100"></span></div>`
+      + `<div class="mf-field"><label class="mf-lbl-uren">⏱️ Uren</label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFub" class="mf-uren" type="number" value="${f.ub || 0}" step="100"></span></div></div>`;
+
+    const allowF = allowedFlightFunnels(camp);
+    f.funnels = (f.funnels || []).filter((id) => allowF.includes(id));
+    h += `<div class="mf-row"><div class="mf-field" style="flex:1"><label>Funnelfases<span class="lbl-help" title="Meerdere mogelijk, maar alleen binnen de funnelselectie van de campagne. Leeg = volgt de campagne.">?</span></label>`
+      + funnelChips(f.funnels, allowF, 'mFfunnels') + `</div></div>`;
 
     if (f.actualized) {
       const planned = f.plannedBudget != null ? f.plannedBudget : FS.calc.flightBudget(f);
@@ -324,6 +372,7 @@
       h += `<div class="m-total"><span>Totaal: ${esc(fC(FS.calc.flightBudget(f)))}</span>`
         + (f.cb ? `<span class="camp-crea">🎨${esc(fC(f.cb))}</span>` : '')
         + (f.tc ? `<span class="camp-tool">🔧${esc(fC(f.tc))}</span>` : '')
+        + (f.ub ? `<span class="camp-uren">⏱️${esc(fC(f.ub))}</span>` : '')
         + `</div>`;
     }
 
@@ -359,9 +408,16 @@
       h += `<div class="act-banner act-ok"><span class="act-ic">✅</span>`
         + `<span class="act-msg">Flight is geactualiseerd. Open de flight om te heropenen.</span></div>`;
     }
+    const allowT = allowedTacticFunnels(camp, f);
+    if (t.funnel && !allowT.includes(t.funnel)) t.funnel = '';
     h += `<div class="mf"><div class="mf-row">`
       + `<div class="mf-field" style="flex:2"><label>Tactic naam</label>`
-      + `<input id="mTname" type="text" value="${a(t.n || '')}"></div></div>`;
+      + `<input id="mTname" type="text" value="${a(t.n || '')}"></div>`
+      + `<div class="mf-field"><label>Funnelstap<span class="lbl-help" title="Één stap, binnen de selectie van de flight/campagne. Leeg = volgt de flight/campagne.">?</span></label>`
+      + `<select id="mTfunnel"><option value="">— geen —</option>`
+      + fnStages().filter((st) => allowT.includes(st.id)).map((st) =>
+        `<option value="${a(st.id)}"${t.funnel === st.id ? ' selected' : ''}>${st.icon ? esc(st.icon) + ' ' : ''}${esc(st.name)}</option>`).join('')
+      + `</select></div></div>`;
 
     h += `<div class="mf-row">`
       + `<div class="mf-field"><label>Start / Week</label><div style="display:flex;gap:4px">`
@@ -369,9 +425,7 @@
       + `<input id="mTsw" type="number" value="${dateToWeek(t.sd)}" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
       + `<div class="mf-field"><label>Eind / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mTed" type="date" value="${a(t.ed)}" min="${a(f.sd)}" max="${a(f.ed)}" style="width:130px">`
-      + `<input id="mTew" type="number" value="${dateToWeek(t.ed)}" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
-      + `<div class="mf-field"><label>Budget<span class="lbl-help" title="Automatisch berekend uit de som van de kanaalbudgetten (incl. mediafee).">?</span></label>`
-      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mTb" type="number" value="${FS.calc.channelSum(t.ch || {})}" step="100" disabled style="background:#F1F5F9;color:#475569;cursor:not-allowed" title="Automatisch berekend uit kanalen"></span></div></div>`;
+      + `<input id="mTew" type="number" value="${dateToWeek(t.ed)}" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div></div>`;
 
     const act = t.actual || 0;
     const dAct = act - t.b;
@@ -390,41 +444,42 @@
       + `<textarea id="mTnt" style="width:100%;min-height:40px;resize:vertical">${esc(t.nt || '')}</textarea></div></div>`;
     h += `<div class="mf-actions"><button class="mbtn del" id="mTdel">🗑 Verwijder</button></div></div>`;
 
-    const channelTotal = FS.calc.channelSum(t.ch || {});
-    const fee = FS.calc.tacticFee(t);
-    h += `<div class="m-section"><h4>📊 Kanaalverdeling + Metrics</h4></div><div class="ch-grid">`;
-    FS.constants.CHANNELS.forEach((ch) => {
-      const v = (t.ch && t.ch[ch.id]) || 0;
-      const hasV = v > 0;
-      const feeR = FS.state.fees[ch.id] || 0;
-      const chF = FS.calc.channelFee(ch.id, v);
-      const fp = feeR ? `${parseFloat((feeR * 100).toPrecision(10))}%` : '';
-      h += `<div class="ch-item${hasV ? ' hv' : ''}"><div class="ch-top"><div class="ch-left">`
-        + `<div class="ch-ic">${ch.icon}</div><span class="ch-nm">${esc(ch.name)}</span>`
-        + (fp ? `<span class="ch-fp">${esc(fp)}</span>` : '')
-        + `</div><span class="cur-wrap cur-sm" style="width:90px;display:inline-block"><span class="cur-sym">€</span><input type="number" class="chv" data-ch="${a(ch.id)}" value="${v}" step="100" min="0"></span></div>`;
-      if (hasV) {
-        const mets = FS.constants.CHANNEL_METRICS[ch.id] || ['Impressies'];
-        const tm = (t.met && t.met[ch.id]) || {};
-        h += `<div class="ch-det">`;
-        if (chF > 0.005) {
-          h += `<div class="ch-mf"><label>💰 Fee</label><input value="${esc(fC2(chF))}" disabled></div>`
-            + `<div class="ch-mf"><label>Netto</label><input class="netto" value="${esc(fC2(v - chF))}" disabled></div>`;
-        }
-        mets.forEach((mk) => {
-          const mkey = mk.toLowerCase().replace(/[^a-z0-9]/g, '');
-          h += `<div class="ch-mf"><label>${esc(mk)}</label>`
-            + `<input class="metv" data-ch="${a(ch.id)}" data-mk="${a(mkey)}" value="${a(tm[mkey] || '')}" placeholder="–"></div>`;
-        });
-        h += `</div>`;
+    // Enkelvoudige kanaalkeuze: per tactic precies één kanaal. Het budget van dat
+    // kanaal is meteen het tacticbudget — geen aparte budgetinvoer nodig.
+    const selCh = Object.keys(t.ch || {})[0] || '';
+    const chBudget = selCh ? (t.ch[selCh] || 0) : 0;
+    const chF = selCh ? FS.calc.channelFee(selCh, chBudget) : 0;
+    h += `<div class="m-section"><h4>📡 Kanaal & KPI's</h4></div><div class="mf tac-ch">`;
+    h += `<div class="mf-row">`
+      + `<div class="mf-field" style="flex:2"><label>Kanaal<span class="lbl-help" title="Kies één kanaal per tactic. Het budget hiernaast is meteen het tacticbudget.">?</span></label>`
+      + `<select id="mTchannel"><option value="">— kies een kanaal —</option>`
+      + FS.constants.CHANNELS.map((ch) =>
+        `<option value="${a(ch.id)}"${selCh === ch.id ? ' selected' : ''}>${a(ch.icon)} ${esc(ch.name)}</option>`).join('')
+      + `</select></div>`
+      + `<div class="mf-field"><label>Budget</label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mTchbudget" type="number" value="${chBudget}" step="100"${selCh ? '' : ' disabled'}></span></div>`
+      + `</div>`;
+    if (selCh) {
+      const protos = FS.constants.CHANNEL_BUYING_PROTOCOLS[selCh] || ['IO'];
+      const curBp = (t.bp && t.bp[selCh]) || '';
+      h += `<div class="mf-row"><div class="mf-field" style="flex:1"><label>🛒 Inkoopprotocol</label>`
+        + `<select class="bpv" data-ch="${a(selCh)}"><option value="">–</option>`
+        + protos.map((p) => `<option value="${a(p)}"${curBp === p ? ' selected' : ''}>${esc(p)}</option>`).join('')
+        + `</select></div></div>`;
+      if (chF > 0.005) {
+        h += `<div class="tac-fee-note">💰 Fee: ${esc(fC2(chF))} · Netto media: ${esc(fC2(chBudget - chF))}</div>`;
       }
-      h += `</div>`;
-    });
-    h += `</div><div class="ch-comp"><span>Kanalen totaal: <strong>${esc(fC(channelTotal))}</strong></span>`
-      + `<span class="ch-ok">✓ Tactic-budget volgt kanalen</span></div>`;
-    if (fee > 0.005) {
-      h += `<div style="margin-top:6px;font-size:9px;color:#8B5CF6;font-weight:600">💰 Fee: ${esc(fC2(fee))} · Netto: ${esc(fC2(channelTotal - fee))}</div>`;
+      const mets = FS.constants.CHANNEL_METRICS[selCh] || ['Impressies'];
+      const tm = (t.met && t.met[selCh]) || {};
+      h += `<div class="tac-kpis"><label class="tac-kpis-lbl">📊 KPI's <span class="tac-kpis-opt">(optioneel)</span></label><div class="ch-det">`;
+      mets.forEach((mk) => {
+        const mkey = mk.toLowerCase().replace(/[^a-z0-9]/g, '');
+        h += `<div class="ch-mf"><label>${esc(mk)}</label>`
+          + `<input class="metv" data-ch="${a(selCh)}" data-mk="${a(mkey)}" value="${a(tm[mkey] || '')}" placeholder="–"></div>`;
+      });
+      h += `</div></div>`;
     }
+    h += `</div>`;
 
     document.getElementById('modalNav').innerHTML = nav;
     const tBody = document.getElementById('modalBody');
@@ -466,6 +521,15 @@
     h += `</div><div class="ss-foot"><button class="ss-add sjm-add" data-j="tj">+ Overig tooling</button>`
       + `<span class="ss-tot">Totaal <strong>${esc(fC(totTooling + FS.calc.calcTooling()))}</strong></span></div></section>`;
 
+    // -- Uren begroting (alternatief voor de handling fee: klanten zonder fee) --
+    const totUren = FS.calc.totalUrenFlights();
+    h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-ur">⏱️</span><h4>Uren begroting</h4>`
+      + `<span class="ss-auto">${esc(fC(totUren))} <em>uit flights</em></span></div><div class="ss-body">`;
+    s.urenJournal.mods.forEach((m, i) => { h += journalRow('uj', i, m, 100); });
+    if (!s.urenJournal.mods.length) h += `<div class="ss-empty">Nog geen overige uren</div>`;
+    h += `</div><div class="ss-foot"><button class="ss-add sjm-add" data-j="uj">+ Overig uren</button>`
+      + `<span class="ss-tot">Totaal <strong>${esc(fC(totUren + FS.calc.calcUren()))}</strong></span></div></section>`;
+
     // -- Fees --
     h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-fe">⚙️</span><h4>Handling Fee per kanaal</h4>`
       + `<span class="ss-hint">Fee = budget × (% / (100 + %))</span></div><div class="ss-body"><div class="fee-grid">`;
@@ -476,6 +540,22 @@
         + `<div class="fi-input"><input type="number" class="sf-in" data-ch="${a(ch.id)}" value="${a(dp)}" placeholder="0" min="0" max="50" step="any"><span class="fi-suf">%</span></div></div>`;
     });
     h += `</div></div></section>`;
+
+    // -- Funnelmodel (instelbaar) --
+    const stages = s.funnelStages || [];
+    h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-fn">🪜</span><h4>Funnelmodel</h4>`
+      + `<span class="ss-hint">Bepaalt de stappen die je per campagne, tactic en flight kunt kiezen</span></div><div class="ss-body"><div class="fn-edit">`;
+    stages.forEach((st, i) => {
+      h += `<div class="fn-edit-row" data-i="${i}">`
+        + `<input type="color" class="fn-color" data-i="${i}" value="${a(st.color || '#3B82F6')}" title="Kleur">`
+        + `<input type="text" class="fn-name" data-i="${i}" value="${a(st.name || '')}" placeholder="Naam funnelstap">`
+        + `<button class="fn-mv fn-up" data-i="${i}" title="Omhoog"${i === 0 ? ' disabled' : ''}>▲</button>`
+        + `<button class="fn-mv fn-dn" data-i="${i}" title="Omlaag"${i === stages.length - 1 ? ' disabled' : ''}>▼</button>`
+        + `<button class="fn-del" data-i="${i}" title="Verwijderen">✕</button></div>`;
+    });
+    if (!stages.length) h += `<div class="ss-empty">Nog geen funnelstappen — voeg er een toe</div>`;
+    h += `</div></div><div class="ss-foot"><button class="ss-add fn-add">+ Funnelstap</button>`
+      + `<span class="ss-tot">${stages.length} ${stages.length === 1 ? 'stap' : 'stappen'}</span></div></section>`;
 
     // -- Notificaties --
     const notifyOn = !!(s.settings && s.settings.notifyActuals);
@@ -529,14 +609,14 @@
   /* ------- Add new flight / tactic helpers ------- */
   function addFlight(ci) {
     FS.state.campaigns[ci].segs.push({
-      n: '', sd: today(), ed: today(), b: 0, cb: 0, tc: 0, col: '', st: 'concept', nt: '', tac: [],
+      n: '', sd: today(), ed: today(), b: 0, cb: 0, tc: 0, ub: 0, col: '', st: 'concept', nt: '', tac: [], funnels: [],
     });
     showCampModal(ci);
   }
 
   function addTactic(ci, fi) {
     const f = FS.state.campaigns[ci].segs[fi];
-    f.tac.push({ n: '', sd: f.sd, ed: f.ed, b: 0, ch: {}, col: '', nt: '', met: {} });
+    f.tac.push({ n: '', sd: f.sd, ed: f.ed, b: 0, ch: {}, col: '', nt: '', met: {}, funnel: '', bp: {} });
     showFlightModal(ci, fi);
   }
 
@@ -672,7 +752,7 @@
   FS.modals = {
     showConfirm, answerConfirm, openModal, closeModal, openSett, closeSett,
     checkCampBudget, clampFlightTactics, showCampModal, showFlightModal, showTacticModal,
-    renderSettings, addFlight, addTactic,
+    renderSettings, addFlight, addTactic, clampFunnelHierarchy,
     actualizeFlight, reopenFlight, unlockCampaign, notifyPendingActuals,
   };
 })(window.FS = window.FS || {});

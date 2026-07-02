@@ -47,6 +47,7 @@
       label: 'Nieuwe campagne',
       col: C.PALETTE[s.campaigns.length % C.PALETTE.length],
       budget: 0,
+      funnels: [],
       segs: [],
     };
     // Plaats nieuwe (losse) campagnes vóór de Always-On-sectie.
@@ -705,6 +706,41 @@
         FS.io.autoSave();
         return;
       }
+      if (el.classList.contains('bpv')) {
+        if (s.selectedFlight === null || s.selectedTactic === null) return;
+        const t = s.campaigns[ci].segs[s.selectedFlight].tac[s.selectedTactic];
+        if (!t.bp) t.bp = {};
+        if (el.value) t.bp[el.dataset.ch] = el.value; else delete t.bp[el.dataset.ch];
+        FS.io.autoSave();
+        return;
+      }
+      if (el.id === 'mTchannel') {
+        if (s.selectedFlight === null || s.selectedTactic === null) return;
+        const t = s.campaigns[ci].segs[s.selectedFlight].tac[s.selectedTactic];
+        const oldCh = Object.keys(t.ch || {})[0] || '';
+        const budget = oldCh ? (t.ch[oldCh] || 0) : 0;
+        const newCh = el.value;
+        // Kanaal wisselen: budget behouden, oude kanaalgegevens (metrics/protocol) opruimen.
+        if (oldCh && oldCh !== newCh) {
+          if (t.met) delete t.met[oldCh];
+          if (t.bp) delete t.bp[oldCh];
+        }
+        t.ch = {};
+        if (newCh) t.ch[newCh] = budget;
+        t.b = FS.calc.channelSum(t.ch);
+        FS.modals.checkCampBudget(ci, () => FS.modals.showTacticModal(ci, s.selectedFlight, s.selectedTactic));
+        return;
+      }
+      if (el.id === 'mTchbudget') {
+        if (s.selectedFlight === null || s.selectedTactic === null) return;
+        const t = s.campaigns[ci].segs[s.selectedFlight].tac[s.selectedTactic];
+        const selCh = Object.keys(t.ch || {})[0] || '';
+        if (!selCh) return;
+        t.ch[selCh] = parseFloat(el.value) || 0;
+        t.b = FS.calc.channelSum(t.ch);
+        FS.modals.checkCampBudget(ci, () => FS.modals.showTacticModal(ci, s.selectedFlight, s.selectedTactic));
+        return;
+      }
 
       if (el.id === 'mCname') {
         s.campaigns[ci].label = el.value.trim() || s.campaigns[ci].label;
@@ -724,8 +760,29 @@
         FS.modals.checkCampBudget(ci, () => FS.modals.showCampModal(ci));
         return;
       }
-      if (el.id === 'mCfunnel') {
-        s.campaigns[ci].funnel = el.value;
+      if (el.matches && el.matches('#mCfunnels input[data-fn]')) {
+        const camp = s.campaigns[ci];
+        if (!Array.isArray(camp.funnels)) camp.funnels = [];
+        const id = el.dataset.fn;
+        if (el.checked) { if (!camp.funnels.includes(id)) camp.funnels.push(id); }
+        else camp.funnels = camp.funnels.filter((x) => x !== id);
+        FS.modals.clampFunnelHierarchy(camp);
+        FS.modals.showCampModal(ci);
+        return;
+      }
+      if (el.matches && el.matches('#mFfunnels input[data-fn]') && s.selectedFlight !== null) {
+        const camp = s.campaigns[ci];
+        const f = camp.segs[s.selectedFlight];
+        if (!Array.isArray(f.funnels)) f.funnels = [];
+        const id = el.dataset.fn;
+        if (el.checked) { if (!f.funnels.includes(id)) f.funnels.push(id); }
+        else f.funnels = f.funnels.filter((x) => x !== id);
+        FS.modals.clampFunnelHierarchy(camp);
+        FS.modals.showFlightModal(ci, s.selectedFlight);
+        return;
+      }
+      if (el.id === 'mTfunnel' && s.selectedFlight !== null && s.selectedTactic !== null) {
+        s.campaigns[ci].segs[s.selectedFlight].tac[s.selectedTactic].funnel = el.value;
         FS.io.autoSave();
         FS.render.render();
         return;
@@ -772,6 +829,7 @@
         if (el.id === 'mFb') { f.b = parseFloat(el.value) || 0; FS.modals.checkCampBudget(ci, re); return; }
         if (el.id === 'mFcb') { f.cb = parseFloat(el.value) || 0; re(); return; }
         if (el.id === 'mFtc') { f.tc = parseFloat(el.value) || 0; re(); return; }
+        if (el.id === 'mFub') { f.ub = parseFloat(el.value) || 0; re(); return; }
       }
 
       if (s.selectedTactic !== null && s.selectedFlight !== null) {
@@ -814,6 +872,7 @@
       if (key === 'bj') return FS.state.budgetJournal;
       if (key === 'cj') return FS.state.creatieJournal;
       if (key === 'tj') return FS.state.toolingJournal;
+      if (key === 'uj') return FS.state.urenJournal;
       return null;
     }
     function ensureComm() {
@@ -849,6 +908,16 @@
           obj.mods[parseInt(el.dataset.i, 10)].n = el.value;
           FS.io.autoSave();
         }
+        return;
+      }
+      if (el.classList.contains('fn-color')) {
+        const i = parseInt(el.dataset.i, 10);
+        if (FS.state.funnelStages[i]) { FS.state.funnelStages[i].color = el.value; afterSettChange(); }
+        return;
+      }
+      if (el.classList.contains('fn-name')) {
+        const i = parseInt(el.dataset.i, 10);
+        if (FS.state.funnelStages[i]) { FS.state.funnelStages[i].name = el.value; afterSettChange(); }
         return;
       }
       if (el.classList.contains('sf-in')) {
@@ -900,6 +969,23 @@
           obj.mods.splice(parseInt(t.dataset.i, 10), 1);
           afterSettChange();
         }
+        return;
+      }
+      if (t.classList.contains('fn-add')) {
+        FS.state.funnelStages.push({ id: 'st_' + Math.random().toString(36).slice(2, 8), name: 'Nieuwe stap', color: '#64748B', icon: '' });
+        afterSettChange();
+        return;
+      }
+      if (t.classList.contains('fn-del')) {
+        FS.state.funnelStages.splice(parseInt(t.dataset.i, 10), 1);
+        afterSettChange();
+        return;
+      }
+      if (t.classList.contains('fn-mv')) {
+        const i = parseInt(t.dataset.i, 10);
+        const j = i + (t.classList.contains('fn-up') ? -1 : 1);
+        const arr = FS.state.funnelStages;
+        if (j >= 0 && j < arr.length) { const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp; afterSettChange(); }
         return;
       }
       if (t.id === 'sjNotifyAct') {

@@ -20,6 +20,8 @@
       bj: s.budgetJournal,
       cj: s.creatieJournal,
       tj: s.toolingJournal,
+      uj: s.urenJournal,
+      fn: s.funnelStages,
       D: s.campaigns,
       n: s.nextId,
       fees: s.fees,
@@ -34,6 +36,8 @@
     s.budgetJournal = d.bj;
     s.creatieJournal = d.cj;
     s.toolingJournal = d.tj;
+    s.urenJournal = d.uj || { mods: [] };
+    s.funnelStages = (Array.isArray(d.fn) && d.fn.length) ? d.fn : FS.state.defaultFunnelStages();
     s.campaigns = d.D;
     s.nextId = d.n;
     s.fees = d.fees;

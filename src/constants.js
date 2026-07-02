@@ -39,6 +39,27 @@
       print: ['Oplage', 'Bereik', 'Kosten p/p'],
     },
 
+    /* Inkoopprotocollen (buying protocols) per kanaal — hoe media wordt
+       ingekocht. Digitale kanalen volgen de aangeleverde matrix; traditionele
+       en overige kanalen kopen standaard via IO (Insertion Order). Programmatic
+       is overal een optie. */
+    CHANNEL_BUYING_PROTOCOLS: {
+      tv: ['IO', 'Programmatic'],
+      radio: ['IO', 'Programmatic'],
+      cinema: ['IO', 'Programmatic'],
+      digital_audio: ['IO', 'Programmatic', 'GPS', 'Xaxis', 'Inventory Other'],
+      display: ['IO', 'Programmatic', 'GPS', 'Xaxis', 'Inventory DPG'],
+      gaming: ['IO', 'Programmatic'],
+      native: ['IO', 'Programmatic', 'GPS', 'Integrated Native'],
+      ooh: ['IO', 'Programmatic', 'Inventory Other', 'Advanced DOOH'],
+      print: ['IO', 'Programmatic'],
+      search: ['IO', 'Programmatic'],
+      social: ['IO', 'Programmatic', 'GOAT'],
+      video: ['IO', 'Programmatic', 'GPS', 'Xaxis', 'Advanced TV', 'Inventory Other'],
+      affiliate: ['IO', 'Programmatic'],
+      branded: ['IO', 'Programmatic'],
+    },
+
     STATUSES: [
       { id: 'concept', name: 'Concept', color: '#F59E0B' },
       { id: 'bevestigd', name: 'Bevestigd', color: '' },
