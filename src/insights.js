@@ -24,16 +24,39 @@
   // Filters (periode + kanalen + funnel). Worden bij eerste open of jaarwissel gereset.
   let filters = null;
   let filtersYear = null;
+  let filtersFunnelKnown = null; // funnel-ids die de filter al kent (voor live-sync)
   function ensureFilters() {
     const y = FS.state.year;
-    if (filters && filtersYear === y) return;
-    filters = {
-      from: `${y}-01-01`,
-      to: `${y}-12-31`,
-      channels: new Set(FS.constants.CHANNELS.map((c) => c.id)),
-      funnel: new Set([...FS.state.funnelStages.map((s) => s.id), '']),
-    };
-    filtersYear = y;
+    if (!filters || filtersYear !== y) {
+      const ids = FS.state.funnelStages.map((s) => s.id);
+      filters = {
+        from: `${y}-01-01`,
+        to: `${y}-12-31`,
+        channels: new Set(FS.constants.CHANNELS.map((c) => c.id)),
+        funnel: new Set([...ids, '']),
+      };
+      filtersFunnelKnown = new Set([...ids, '']);
+      filtersYear = y;
+      return;
+    }
+    syncFunnelFilter();
+  }
+
+  /** Houd het funnelfilter in sync met het (instelbare) funnelmodel: nieuw
+   *  toegevoegde stappen worden standaard actief, verwijderde/hernoemde-weg
+   *  stappen verdwijnen. Zo toont Inzichten altijd de actuele funnelstappen
+   *  i.p.v. een oude gecachte selectie. */
+  function syncFunnelFilter() {
+    if (!filters) return;
+    if (!filtersFunnelKnown) filtersFunnelKnown = new Set();
+    const ids = FS.state.funnelStages.map((s) => s.id);
+    const valid = new Set([...ids, '']);
+    [...filters.funnel].forEach((id) => { if (!valid.has(id)) filters.funnel.delete(id); });
+    [...filtersFunnelKnown].forEach((id) => { if (!valid.has(id)) filtersFunnelKnown.delete(id); });
+    ids.forEach((id) => {
+      if (!filtersFunnelKnown.has(id)) { filters.funnel.add(id); filtersFunnelKnown.add(id); }
+    });
+    filtersFunnelKnown.add('');
   }
 
   function campMatchesFunnel(c) {
@@ -326,6 +349,29 @@
     return totals;
   }
 
+  /** Budget per potje (naar rato van periode). Flights zonder (geldig) potje
+   *  vallen onder '' (— Geen potje —). */
+  function aggregateBudgetPots() {
+    ensureFilters();
+    const potCfg = (FS.state.settings && FS.state.settings.pots) || {};
+    const list = Array.isArray(potCfg.list) ? potCfg.list : [];
+    const valid = new Set(list.map((p) => p.id));
+    const totals = { '': 0 };
+    list.forEach((p) => { totals[p.id] = 0; });
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
+      c.segs.forEach((f) => {
+        const w = periodWeight(f.sd, f.ed);
+        if (w <= 0) return;
+        const val = FS.calc.flightBudget(f) * w;
+        if (val <= 0) return;
+        const key = (f.pot && valid.has(f.pot)) ? f.pot : '';
+        totals[key] = (totals[key] || 0) + val;
+      });
+    });
+    return totals;
+  }
+
   /* =====================  CHARTS (SVG)  ===================== */
 
   const CHART_COLORS = [
@@ -518,6 +564,47 @@
     return barList(entries);
   }
 
+  /** Gesorteerde potje-entries met kleur (grijs voor "geen potje"). */
+  function budgetPotEntries() {
+    const potCfg = (FS.state.settings && FS.state.settings.pots) || {};
+    const list = Array.isArray(potCfg.list) ? potCfg.list : [];
+    const totals = aggregateBudgetPots();
+    const entries = list.map((p, i) => ({
+      key: p.id,
+      label: p.name || 'Potje',
+      value: totals[p.id] || 0,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+    }));
+    entries.push({ key: '', label: '— Geen potje —', value: totals[''] || 0, color: '#94A3B8' });
+    return entries;
+  }
+
+  function budgetPotChart() {
+    return barList(budgetPotEntries());
+  }
+
+  /** Tabel: budget + aandeel per potje. */
+  function budgetPotTable(entries) {
+    const valid = entries.filter((e) => e.value > 0).sort((a, b) => b.value - a.value);
+    if (!valid.length) {
+      return `<div class="ins-empty">Nog geen budget aan potjes toegewezen — kies een potje per flight.</div>`;
+    }
+    const sum = valid.reduce((a, e) => a + e.value, 0);
+    let tbody = '';
+    valid.forEach((e) => {
+      const share = ((e.value / sum) * 100).toFixed(1);
+      const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${e.color};margin-right:6px;vertical-align:middle"></span>`;
+      tbody += `<tr><td>${dot}<strong>${esc(e.label)}</strong></td>`
+        + `<td class="num">${esc(fC(e.value))}</td>`
+        + `<td class="num">${share}%</td></tr>`;
+    });
+    return `<table class="ins-table">`
+      + `<thead><tr><th>Potje</th><th class="num">Budget</th><th class="num">Aandeel</th></tr></thead>`
+      + `<tbody>${tbody}</tbody>`
+      + `<tfoot><tr><td><strong>Totaal</strong></td><td class="num"><strong>${esc(fC(sum))}</strong></td>`
+      + `<td class="num"><strong>100%</strong></td></tr></tfoot></table>`;
+  }
+
   /** Tabel: budget + aandeel + betrokken kanalen per inkoopprotocol. */
   function buyingProtocolTable(entries) {
     const valid = entries.filter((e) => e.value > 0);
@@ -609,6 +696,15 @@
     const s = FS.state;
     ensureFilters();
 
+    // Potjes-tab alleen tonen als de klant met budget potjes werkt.
+    const potsEnabled = !!(s.settings && s.settings.pots && s.settings.pots.enabled);
+    const tabList = TABS.slice();
+    if (potsEnabled) {
+      const ai = tabList.findIndex((t) => t.id === 'actuals');
+      tabList.splice(ai < 0 ? tabList.length : ai, 0, { id: 'pots', label: '🪙 Potjes' });
+    }
+    if (!tabList.some((t) => t.id === activeTab)) activeTab = 'overview';
+
     // Gefilterde aggregaties
     const spend = aggregateMonthlySpend();
     const filtMedia = spend.media.reduce((a, v) => a + v, 0);
@@ -692,7 +788,7 @@
 
     // Tab-balk
     h += `<div class="ins-tabs">`
-      + TABS.map((t) => {
+      + tabList.map((t) => {
         const isActualTab = t.id === 'actuals';
         const anyActual = isActualTab && FS.state.campaigns.some((c) => (c.segs || []).some((f) => f.actualized));
         const dot = anyActual ? `<span class="ins-tab-dot"></span>` : '';
@@ -736,6 +832,18 @@
       h += section('🪜 Budget per funnelfase', funnelChart());
       h += section('🚦 Budget per status', statusChart());
       h += section('🔁 Always-On vs. losse campagnes', splitBar(aggregateSectionSplit()));
+    } else if (activeTab === 'pots') {
+      const potList = (s.settings && s.settings.pots && Array.isArray(s.settings.pots.list)) ? s.settings.pots.list : [];
+      const potTotals = aggregateBudgetPots();
+      const potAssigned = potList.reduce((acc, p) => acc + (potTotals[p.id] || 0), 0);
+      const potNone = potTotals[''] || 0;
+      h += `<div class="ins-grid">`
+        + kpi('🪙 Budget potjes', String(potList.length))
+        + kpi('📦 Toegewezen', fC(potAssigned))
+        + kpi(potNone > 0 ? '❓ Zonder potje' : '✓ Zonder potje', fC(potNone), potNone > 0 ? 'neg' : 'pos')
+        + `</div>`;
+      h += section('🪙 Budget per potje', budgetPotChart());
+      h += section('📋 Potje-overzicht', budgetPotTable(budgetPotEntries()));
     } else if (activeTab === 'actuals') {
       const camps = collectCampaignActuals();
       const totP = camps.reduce((a, c) => a + c.planned, 0);
@@ -858,6 +966,8 @@
 
     const channelHtml = donut(aggregateChannels(), FS.constants.CHANNELS);
     const buyingHtml = buyingProtocolTable(buyingProtocolEntries());
+    const potsOn = !!(s.settings && s.settings.pots && s.settings.pots.enabled);
+    const potHtml = potsOn ? budgetPotTable(budgetPotEntries()) : '';
     const spendHtml = stackedBars(aggregateMonthlySpend());
     const splitHtml = splitBar(aggregateSectionSplit());
     const actuals = collectActuals();
@@ -944,6 +1054,8 @@ ${channelHtml}
 
 <h2>� Budget per inkoopprotocol</h2>
 ${buyingHtml}
+
+${potsOn ? `<h2>🪙 Budget per potje</h2>${potHtml}` : ''}
 
 <h2>�📈 Spend curve per maand</h2>
 ${spendHtml}

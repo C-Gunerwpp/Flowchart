@@ -19,6 +19,13 @@
         inclBtw: false,   // toon bedragen incl. BTW
         btwPct: 21,       // BTW-percentage (instelbaar)
       },
+      // Budget potjes: klanten die hun budget uit meerdere potjes verdelen.
+      // Aan/uit + een lijst met benoembare potjes ({id,name}). Flights kunnen
+      // dan per stuk kiezen uit welk potje hun budget komt (flight.pot = id).
+      pots: {
+        enabled: false,
+        list: [],
+      },
     };
   }
 
@@ -55,6 +62,8 @@
     const def = defaultSettings();
     const out = Object.assign({}, def, loaded || {});
     out.comm = Object.assign({}, def.comm, (loaded && loaded.comm) || {});
+    out.pots = Object.assign({}, def.pots, (loaded && loaded.pots) || {});
+    if (!Array.isArray(out.pots.list)) out.pots.list = [];
     return out;
   }
   FS.state.mergeSettings = mergeSettings;

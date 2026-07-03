@@ -296,6 +296,16 @@
     });
     h += `</select></div></div>`;
 
+    const potCfg = (FS.state.settings && FS.state.settings.pots) || {};
+    const potList = (potCfg.enabled && Array.isArray(potCfg.list)) ? potCfg.list : [];
+    const potFieldHTML = potList.length
+      ? `<div class="mf-field"><label>Budget uit potje<span class="lbl-help" title="Kies uit welk budget potje het budget van deze flight komt.">?</span></label>`
+        + `<select id="mFpot">`
+        + `<option value="">— Geen potje —</option>`
+        + potList.map((p) => `<option value="${a(p.id)}"${f.pot === p.id ? ' selected' : ''}>${esc(p.name || 'Potje')}</option>`).join('')
+        + `</select></div>`
+      : '';
+
     h += `<div class="mf-row">`
       + `<div class="mf-field"><label>Start / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mFsd" type="date" value="${a(f.sd)}" style="width:130px">`
@@ -304,7 +314,9 @@
       + `<input id="mFed" type="date" value="${a(f.ed)}" style="width:130px">`
       + `<input id="mFew" type="number" value="${dateToWeek(f.ed)}" min="1" max="53" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
       + `<div class="mf-field"><label>Budget<span class="lbl-help" title="Laat op 0 staan om automatisch het totaal van de tactics te gebruiken.">?</span></label>`
-      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFb" type="number" value="${f.b || 0}" step="1000"></span></div></div>`;
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFb" type="number" value="${f.b || 0}" step="1000"></span></div>`
+      + potFieldHTML
+      + `</div>`;
 
     h += `<div class="mf-row">`
       + `<div class="mf-field"><label class="mf-lbl-crea">🎨 Creatie</label>`
@@ -556,6 +568,34 @@
     if (!stages.length) h += `<div class="ss-empty">Nog geen funnelstappen — voeg er een toe</div>`;
     h += `</div></div><div class="ss-foot"><button class="ss-add fn-add">+ Funnelstap</button>`
       + `<span class="ss-tot">${stages.length} ${stages.length === 1 ? 'stap' : 'stappen'}</span></div></section>`;
+
+    // -- Budget potjes (instelbaar per klant) --
+    const potCfg = (s.settings && s.settings.pots) || { enabled: false, list: [] };
+    const potList = Array.isArray(potCfg.list) ? potCfg.list : [];
+    const potsOn = !!potCfg.enabled;
+    h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-bg">🪙</span><h4>Budget potjes</h4>`
+      + `<span class="ss-hint">Voor klanten die hun budget uit meerdere potjes verdelen</span></div><div class="ss-body">`
+      + `<div class="ss-toggle"><label for="potEnable">Klant werkt met meerdere budget potjes`
+      + `<span class="ss-hint-sm">Zet aan om per flight te kiezen uit welk potje het budget komt.</span></label>`
+      + `<div class="tg-sw${potsOn ? ' on' : ''}" id="potEnable" role="switch" aria-checked="${potsOn}" tabindex="0"></div></div>`;
+    if (potsOn) {
+      h += `<div class="pot-edit">`;
+      potList.forEach((p, i) => {
+        h += `<div class="pot-edit-row" data-i="${i}">`
+          + `<input type="text" class="pot-name" data-i="${i}" value="${a(p.name || '')}" placeholder="Naam potje (bijv. Merkbudget)">`
+          + `<button class="pot-mv pot-up" data-i="${i}" title="Omhoog"${i === 0 ? ' disabled' : ''}>▲</button>`
+          + `<button class="pot-mv pot-dn" data-i="${i}" title="Omlaag"${i === potList.length - 1 ? ' disabled' : ''}>▼</button>`
+          + `<button class="pot-del" data-i="${i}" title="Verwijderen">✕</button></div>`;
+      });
+      if (!potList.length) h += `<div class="ss-empty">Nog geen potjes — voeg er een toe</div>`;
+      h += `</div>`;
+    }
+    h += `</div>`;
+    if (potsOn) {
+      h += `<div class="ss-foot"><button class="ss-add pot-add">+ Potje</button>`
+        + `<span class="ss-tot">${potList.length} ${potList.length === 1 ? 'potje' : 'potjes'}</span></div>`;
+    }
+    h += `</section>`;
 
     // -- Notificaties --
     const notifyOn = !!(s.settings && s.settings.notifyActuals);

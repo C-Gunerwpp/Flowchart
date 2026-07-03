@@ -830,6 +830,7 @@
         if (el.id === 'mFcb') { f.cb = parseFloat(el.value) || 0; re(); return; }
         if (el.id === 'mFtc') { f.tc = parseFloat(el.value) || 0; re(); return; }
         if (el.id === 'mFub') { f.ub = parseFloat(el.value) || 0; re(); return; }
+        if (el.id === 'mFpot') { if (el.value) f.pot = el.value; else delete f.pot; re(); return; }
       }
 
       if (s.selectedTactic !== null && s.selectedFlight !== null) {
@@ -880,6 +881,12 @@
       if (!FS.state.settings.comm) FS.state.settings.comm = FS.state.defaultSettings().comm;
       return FS.state.settings.comm;
     }
+    function ensurePots() {
+      if (!FS.state.settings) FS.state.settings = FS.state.defaultSettings();
+      if (!FS.state.settings.pots) FS.state.settings.pots = { enabled: false, list: [] };
+      if (!Array.isArray(FS.state.settings.pots.list)) FS.state.settings.pots.list = [];
+      return FS.state.settings.pots;
+    }
     function afterSettChange() {
       FS.calc.calcJaar();
       FS.modals.renderSettings();
@@ -918,6 +925,12 @@
       if (el.classList.contains('fn-name')) {
         const i = parseInt(el.dataset.i, 10);
         if (FS.state.funnelStages[i]) { FS.state.funnelStages[i].name = el.value; afterSettChange(); }
+        return;
+      }
+      if (el.classList.contains('pot-name')) {
+        const pots = ensurePots();
+        const i = parseInt(el.dataset.i, 10);
+        if (pots.list[i]) { pots.list[i].name = el.value; FS.io.autoSave(); }
         return;
       }
       if (el.classList.contains('sf-in')) {
@@ -993,6 +1006,38 @@
         FS.state.settings.notifyActuals = !FS.state.settings.notifyActuals;
         FS.io.autoSave();
         FS.modals.renderSettings();
+      }
+      if (t.id === 'potEnable') {
+        const pots = ensurePots();
+        pots.enabled = !pots.enabled;
+        FS.io.autoSave();
+        FS.modals.renderSettings();
+        return;
+      }
+      if (t.classList.contains('pot-add')) {
+        const pots = ensurePots();
+        pots.list.push({ id: 'pot_' + Math.random().toString(36).slice(2, 8), name: '' });
+        FS.io.autoSave();
+        FS.modals.renderSettings();
+        return;
+      }
+      if (t.classList.contains('pot-del')) {
+        const pots = ensurePots();
+        pots.list.splice(parseInt(t.dataset.i, 10), 1);
+        FS.io.autoSave();
+        FS.modals.renderSettings();
+        return;
+      }
+      if (t.classList.contains('pot-mv')) {
+        const pots = ensurePots();
+        const i = parseInt(t.dataset.i, 10);
+        const j = i + (t.classList.contains('pot-up') ? -1 : 1);
+        if (j >= 0 && j < pots.list.length) {
+          const tmp = pots.list[i]; pots.list[i] = pots.list[j]; pots.list[j] = tmp;
+          FS.io.autoSave();
+          FS.modals.renderSettings();
+        }
+        return;
       }
     });
 

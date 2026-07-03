@@ -1199,3 +1199,20 @@ html[data-theme="dark"] .tac-fee-note{color:#c4b5fd}
 .tac-kpis{margin-top:12px}
 .tac-kpis-lbl{display:block;font-size:11px;font-weight:700;color:var(--heading);margin-bottom:6px}
 .tac-kpis-opt{font-weight:400;opacity:.5}
+
+/* =====================================================================
+   FEEDBACK v19 — Budget potjes (instelbare lijst + flight-keuze)
+   ===================================================================== */
+.pot-edit{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.pot-edit-row{display:flex;align-items:center;gap:6px}
+.pot-name{flex:1;min-width:0;padding:6px 9px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text)}
+.pot-name:focus{outline:none;border-color:var(--primary)}
+.pot-mv,.pot-del{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:10px;color:var(--text-2);flex:0 0 auto;display:flex;align-items:center;justify-content:center}
+.pot-mv:hover:not(:disabled),.pot-del:hover{background:var(--surface-2)}
+.pot-mv:disabled{opacity:.35;cursor:default}
+.pot-del:hover{background:#FEE2E2;color:#DC2626;border-color:#FCA5A5}
+/* Potje-keuze in de flight-modal (naast het budgetveld) */
+.mf-field select#mFpot{width:100%;border:1px solid #D1D5DB;border-radius:5px;padding:7px 8px;font-size:12px;font-family:inherit;background:#fff;color:#0C1726;cursor:pointer}
+.mf-field select#mFpot:focus{border-color:#0026C5;outline:none}
+html[data-theme="dark"] .mf-field select#mFpot{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+
