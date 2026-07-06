@@ -26,6 +26,12 @@
         enabled: false,
         list: [],
       },
+      // Doelgroepen (target audiences) op flight-niveau: aan/uit. Wanneer aan
+      // kun je per flight één doelgroep instellen (geslacht + leeftijdsrange),
+      // opgeslagen als flight.audience = {gender, ageMin, ageMax}.
+      audiences: {
+        enabled: false,
+      },
     };
   }
 
@@ -64,6 +70,7 @@
     out.comm = Object.assign({}, def.comm, (loaded && loaded.comm) || {});
     out.pots = Object.assign({}, def.pots, (loaded && loaded.pots) || {});
     if (!Array.isArray(out.pots.list)) out.pots.list = [];
+    out.audiences = Object.assign({}, def.audiences, (loaded && loaded.audiences) || {});
     return out;
   }
   FS.state.mergeSettings = mergeSettings;

@@ -1216,3 +1216,28 @@ html[data-theme="dark"] .tac-fee-note{color:#c4b5fd}
 .mf-field select#mFpot:focus{border-color:#0026C5;outline:none}
 html[data-theme="dark"] .mf-field select#mFpot{background:var(--surface-2);border-color:var(--border);color:var(--text)}
 
+/* =====================================================================
+   FEEDBACK v20 — Doelgroepen (target audiences) op flight-niveau
+   ===================================================================== */
+.ss-ic-au{background:#EDE9FE}
+html[data-theme="dark"] .ss-ic-au{background:#2a1f4a}
+/* Doelgroep-sectie in de flight-modal: geslacht + leeftijdsrange */
+.mf-aud{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.mf-aud-g{border:1px solid #D1D5DB;border-radius:5px;padding:7px 8px;font-size:12px;font-family:inherit;background:#fff;color:#0C1726;cursor:pointer;flex:0 0 auto}
+.mf-aud-g:focus{border-color:#0026C5;outline:none}
+.mf-aud-age{display:inline-flex;align-items:center;gap:5px}
+.mf-aud-num{width:60px;border:1px solid #D1D5DB;border-radius:5px;padding:7px 6px;font-size:12px;font-family:inherit;background:#fff;color:#0C1726;text-align:center}
+.mf-aud-num:focus{border-color:#0026C5;outline:none}
+.mf-aud-dash{color:var(--text-3);font-weight:700}
+.mf-aud-suf{font-size:10px;color:var(--text-3);font-weight:600}
+.mf-aud-del{width:30px;height:30px;border:1px solid var(--border);border-radius:6px;background:var(--surface);cursor:pointer;font-size:11px;color:var(--text-2);flex:0 0 auto}
+.mf-aud-del:hover{background:#FEE2E2;color:#DC2626;border-color:#FCA5A5}
+.mf-aud-add{align-self:flex-start}
+html[data-theme="dark"] .mf-aud-g,
+html[data-theme="dark"] .mf-aud-num{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+/* Doelgroep-filterchips in inzichten (zelfde look als de funnelchips) */
+.ins-aud{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#1E293B;background:#fff;border:1px solid #E5E7EB;border-radius:14px;padding:3px 9px;cursor:pointer;user-select:none;font-weight:600}
+.ins-aud.off{opacity:.4;background:#F3F4F6}
+html[data-theme="dark"] .ins-aud{background:var(--surface);border-color:var(--border);color:var(--text)}
+html[data-theme="dark"] .ins-aud.off{background:var(--surface-2);opacity:.5}
+

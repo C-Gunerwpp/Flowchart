@@ -74,6 +74,13 @@
       { id: 'action', name: 'Action', color: '#DC2626', icon: '🛒' },
     ],
 
+    /* Geslachten voor doelgroepen (target audiences) op flight-niveau. */
+    GENDERS: [
+      { id: 'm', name: 'Man', icon: '♂' },
+      { id: 'v', name: 'Vrouw', icon: '♀' },
+      { id: 'b', name: 'Beide', icon: '⚥' },
+    ],
+
     /* Kleurgroepen — WPP Media + de vier agentschappen + accenten/neutraal.
        Elke groep heeft meerdere shades (donker → licht) zodat er onderscheid
        blijft binnen één bureau-kleur. */

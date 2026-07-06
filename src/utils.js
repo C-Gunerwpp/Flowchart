@@ -192,6 +192,33 @@
     });
   }
 
+  /* ------- Doelgroepen (target audiences) ------- */
+  /** Naam van een geslacht-id (m/v/b) via constants; '' als onbekend. */
+  function genderName(g) {
+    const found = (FS.constants && FS.constants.GENDERS || []).find((x) => x.id === g);
+    return found ? found.name : '';
+  }
+  /** Stabiele sleutel voor een doelgroep zodat we in inzichten kunnen groeperen
+   *  en filteren. Lege/ongeldige doelgroep → '' (— Geen doelgroep —). */
+  function audienceKey(aud) {
+    if (!aud || !aud.gender) return '';
+    const min = Number.isFinite(aud.ageMin) ? aud.ageMin : '';
+    const max = Number.isFinite(aud.ageMax) ? aud.ageMax : '';
+    return `${aud.gender}|${min}|${max}`;
+  }
+  /** Leesbaar label voor een doelgroep, bijv. "Man 18–34" of "Beide 18+". */
+  function audienceLabel(aud) {
+    if (!aud || !aud.gender) return '';
+    const g = genderName(aud.gender) || '?';
+    const min = Number.isFinite(aud.ageMin) ? aud.ageMin : null;
+    const max = Number.isFinite(aud.ageMax) ? aud.ageMax : null;
+    let age = '';
+    if (min != null && max != null) age = ` ${min}–${max}`;
+    else if (min != null) age = ` ${min}+`;
+    else if (max != null) age = ` t/m ${max}`;
+    return `${g}${age}`;
+  }
+
   FS.utils = {
     escapeHtml,
     escapeAttr,
@@ -210,5 +237,8 @@
     statusColor,
     clampTactics,
     normalize,
+    genderName,
+    audienceKey,
+    audienceLabel,
   };
 })(window.FS = window.FS || {});

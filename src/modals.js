@@ -331,6 +331,26 @@
     h += `<div class="mf-row"><div class="mf-field" style="flex:1"><label>Funnelfases<span class="lbl-help" title="Meerdere mogelijk, maar alleen binnen de funnelselectie van de campagne. Leeg = volgt de campagne.">?</span></label>`
       + funnelChips(f.funnels, allowF, 'mFfunnels') + `</div></div>`;
 
+    const audEnabled = !!(FS.state.settings && FS.state.settings.audiences && FS.state.settings.audiences.enabled);
+    if (audEnabled) {
+      const aud = f.audience;
+      h += `<div class="mf-row"><div class="mf-field" style="flex:1"><label>👥 Doelgroep<span class="lbl-help" title="Eén doelgroep per flight: geslacht + leeftijdsrange. Je ziet dit terug in Inzichten.">?</span></label>`;
+      if (aud && aud.gender) {
+        h += `<div class="mf-aud">`
+          + `<select id="mFaudG" class="mf-aud-g">`
+          + FS.constants.GENDERS.map((g) => `<option value="${a(g.id)}"${aud.gender === g.id ? ' selected' : ''}>${esc((g.icon ? g.icon + ' ' : '') + g.name)}</option>`).join('')
+          + `</select>`
+          + `<span class="mf-aud-age"><input id="mFaudMin" class="mf-aud-num" type="number" min="0" max="120" step="1" value="${Number.isFinite(aud.ageMin) ? aud.ageMin : ''}" placeholder="18">`
+          + `<span class="mf-aud-dash">–</span>`
+          + `<input id="mFaudMax" class="mf-aud-num" type="number" min="0" max="120" step="1" value="${Number.isFinite(aud.ageMax) ? aud.ageMax : ''}" placeholder="65"><span class="mf-aud-suf">jaar</span></span>`
+          + `<button class="mf-aud-del" id="mFaudDel" title="Doelgroep verwijderen">✕</button>`
+          + `</div>`;
+      } else {
+        h += `<button class="mbtn mf-aud-add" id="mFaudAdd">+ Doelgroep toevoegen</button>`;
+      }
+      h += `</div></div>`;
+    }
+
     if (f.actualized) {
       const planned = f.plannedBudget != null ? f.plannedBudget : FS.calc.flightBudget(f);
       const act = f.actualBudget || 0;
@@ -596,6 +616,16 @@
         + `<span class="ss-tot">${potList.length} ${potList.length === 1 ? 'potje' : 'potjes'}</span></div>`;
     }
     h += `</section>`;
+
+    // -- Doelgroepen op flight-niveau (instelbaar per klant) --
+    const audCfg = (s.settings && s.settings.audiences) || { enabled: false };
+    const audOn = !!audCfg.enabled;
+    h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-au">👥</span><h4>Doelgroepen</h4>`
+      + `<span class="ss-hint">Stel per flight een doelgroep in (geslacht + leeftijd)</span></div><div class="ss-body">`
+      + `<div class="ss-toggle"><label for="audEnable">Doelgroepen op flight-niveau`
+      + `<span class="ss-hint-sm">Zet aan om per flight een doelgroep (man/vrouw/beide + leeftijdsrange) te kiezen. Je ziet dit terug in Inzichten.</span></label>`
+      + `<div class="tg-sw${audOn ? ' on' : ''}" id="audEnable" role="switch" aria-checked="${audOn}" tabindex="0"></div></div>`
+      + `</div></section>`;
 
     // -- Notificaties --
     const notifyOn = !!(s.settings && s.settings.notifyActuals);

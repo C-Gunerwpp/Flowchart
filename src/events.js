@@ -546,6 +546,16 @@
       const id = e.target.id;
       if (id === 'mFadd') { FS.modals.addFlight(ci); return; }
       if (id === 'mTadd' && s.selectedFlight !== null) { FS.modals.addTactic(ci, s.selectedFlight); return; }
+      if (id === 'mFaudAdd' && s.selectedFlight !== null) {
+        s.campaigns[ci].segs[s.selectedFlight].audience = { gender: 'b', ageMin: 18, ageMax: 65 };
+        FS.modals.showFlightModal(ci, s.selectedFlight);
+        return;
+      }
+      if (id === 'mFaudDel' && s.selectedFlight !== null) {
+        delete s.campaigns[ci].segs[s.selectedFlight].audience;
+        FS.modals.showFlightModal(ci, s.selectedFlight);
+        return;
+      }
 
       /* Actualisatie + lock */
       if (id === 'mFactual' && s.selectedFlight !== null) {
@@ -831,6 +841,21 @@
         if (el.id === 'mFtc') { f.tc = parseFloat(el.value) || 0; re(); return; }
         if (el.id === 'mFub') { f.ub = parseFloat(el.value) || 0; re(); return; }
         if (el.id === 'mFpot') { if (el.value) f.pot = el.value; else delete f.pot; re(); return; }
+        if (el.id === 'mFaudG') { if (!f.audience) f.audience = { gender: 'b', ageMin: 18, ageMax: 65 }; f.audience.gender = el.value; re(); return; }
+        if (el.id === 'mFaudMin') {
+          if (!f.audience) f.audience = { gender: 'b', ageMin: 18, ageMax: 65 };
+          const v = parseInt(el.value, 10);
+          f.audience.ageMin = Number.isFinite(v) ? v : null;
+          re();
+          return;
+        }
+        if (el.id === 'mFaudMax') {
+          if (!f.audience) f.audience = { gender: 'b', ageMin: 18, ageMax: 65 };
+          const v = parseInt(el.value, 10);
+          f.audience.ageMax = Number.isFinite(v) ? v : null;
+          re();
+          return;
+        }
       }
 
       if (s.selectedTactic !== null && s.selectedFlight !== null) {
@@ -1037,6 +1062,14 @@
           FS.io.autoSave();
           FS.modals.renderSettings();
         }
+        return;
+      }
+      if (t.id === 'audEnable') {
+        if (!FS.state.settings) FS.state.settings = FS.state.defaultSettings();
+        if (!FS.state.settings.audiences) FS.state.settings.audiences = { enabled: false };
+        FS.state.settings.audiences.enabled = !FS.state.settings.audiences.enabled;
+        FS.io.autoSave();
+        FS.modals.renderSettings();
         return;
       }
     });

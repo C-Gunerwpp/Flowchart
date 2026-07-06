@@ -21,25 +21,30 @@
     { id: 'actuals', label: '📐 Planned vs. Actual' },
   ];
 
-  // Filters (periode + kanalen + funnel). Worden bij eerste open of jaarwissel gereset.
+  // Filters (periode + kanalen + funnel + doelgroep). Worden bij eerste open of jaarwissel gereset.
   let filters = null;
   let filtersYear = null;
   let filtersFunnelKnown = null; // funnel-ids die de filter al kent (voor live-sync)
+  let filtersAudKnown = null;    // doelgroep-sleutels die de filter al kent (live-sync)
   function ensureFilters() {
     const y = FS.state.year;
     if (!filters || filtersYear !== y) {
       const ids = FS.state.funnelStages.map((s) => s.id);
+      const audKeys = allAudienceKeys();
       filters = {
         from: `${y}-01-01`,
         to: `${y}-12-31`,
         channels: new Set(FS.constants.CHANNELS.map((c) => c.id)),
         funnel: new Set([...ids, '']),
+        audience: new Set(audKeys),
       };
       filtersFunnelKnown = new Set([...ids, '']);
+      filtersAudKnown = new Set(audKeys);
       filtersYear = y;
       return;
     }
     syncFunnelFilter();
+    syncAudienceFilter();
   }
 
   /** Houd het funnelfilter in sync met het (instelbare) funnelmodel: nieuw
@@ -57,6 +62,51 @@
       if (!filtersFunnelKnown.has(id)) { filters.funnel.add(id); filtersFunnelKnown.add(id); }
     });
     filtersFunnelKnown.add('');
+  }
+
+  /** Doelgroepen zijn data-afgeleid (uit de flights): houd het filter in sync —
+   *  nieuw voorkomende doelgroepen komen standaard aan, verdwenen verdwijnen. */
+  function syncAudienceFilter() {
+    if (!filters) return;
+    if (!filters.audience) filters.audience = new Set(allAudienceKeys());
+    if (!filtersAudKnown) filtersAudKnown = new Set();
+    const valid = allAudienceKeys();
+    [...filters.audience].forEach((k) => { if (!valid.has(k)) filters.audience.delete(k); });
+    [...filtersAudKnown].forEach((k) => { if (!valid.has(k)) filtersAudKnown.delete(k); });
+    valid.forEach((k) => { if (!filtersAudKnown.has(k)) { filters.audience.add(k); filtersAudKnown.add(k); } });
+  }
+
+  function audiencesEnabled() {
+    return !!(FS.state.settings && FS.state.settings.audiences && FS.state.settings.audiences.enabled);
+  }
+
+  /** Alle voorkomende doelgroep-sleutels (incl. '' = geen doelgroep). */
+  function allAudienceKeys() {
+    const keys = new Set(['']);
+    FS.state.campaigns.forEach((c) => (c.segs || []).forEach((f) => {
+      keys.add(FS.utils.audienceKey(f.audience));
+    }));
+    return keys;
+  }
+
+  /** Unieke doelgroepen (excl. '') als {key,label}, gesorteerd op label. */
+  function distinctAudiences() {
+    const map = new Map();
+    FS.state.campaigns.forEach((c) => (c.segs || []).forEach((f) => {
+      const k = FS.utils.audienceKey(f.audience);
+      if (!k) return;
+      if (!map.has(k)) map.set(k, FS.utils.audienceLabel(f.audience));
+    }));
+    return [...map.entries()].map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  /** Doelgroepfilter: alleen actief als de feature aanstaat. Flights waarvan de
+   *  doelgroep niet geselecteerd is, tellen niet mee in de aggregaties. */
+  function flightMatchesAudience(f) {
+    if (!audiencesEnabled()) return true;
+    if (!filters || !filters.audience) return true;
+    return filters.audience.has(FS.utils.audienceKey(f.audience));
   }
 
   function campMatchesFunnel(c) {
@@ -121,7 +171,8 @@
     const totals = {};
     FS.state.campaigns.forEach((c) => {
       if (!campMatchesFunnel(c)) return;
-      c.segs.forEach((f) =>
+      c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
         (f.tac || []).forEach((t) => {
           const w = periodWeight(t.sd, t.ed);
           if (w <= 0) return;
@@ -129,8 +180,8 @@
             if (!filters.channels.has(k)) continue;
             totals[k] = (totals[k] || 0) + (t.ch[k] || 0) * w;
           }
-        }),
-      );
+        });
+      });
     });
     return totals;
   }
@@ -144,7 +195,8 @@
     const map = {};
     FS.state.campaigns.forEach((c) => {
       if (!campMatchesFunnel(c)) return;
-      c.segs.forEach((f) =>
+      c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
         (f.tac || []).forEach((t) => {
           const w = periodWeight(t.sd, t.ed);
           if (w <= 0) return;
@@ -157,8 +209,8 @@
             map[bp].value += val;
             map[bp].channels[k] = (map[bp].channels[k] || 0) + val;
           }
-        }),
-      );
+        });
+      });
     });
     return map;
   }
@@ -207,6 +259,7 @@
     FS.state.campaigns.forEach((c) => {
       if (!campMatchesFunnel(c)) return;
       c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
         const rf = clampedPeriod(f.sd, f.ed);
         if (f.tac && f.tac.length) {
           f.tac.forEach((t) => {
@@ -234,6 +287,7 @@
       if (!campMatchesFunnel(c)) return;
       let total = 0;
       c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
         const w = periodWeight(f.sd, f.ed);
         if (w > 0) total += FS.calc.flightBudget(f) * w;
       });
@@ -249,6 +303,7 @@
       if (!campMatchesFunnel(c)) return;
       c.segs.forEach((f) =>
         (f.tac || []).forEach((t) => {
+          if (!flightMatchesAudience(f)) return;
           if (!(t.actual && t.actual > 0)) return;
           const w = periodWeight(t.sd, t.ed);
           if (w <= 0) return;
@@ -277,6 +332,7 @@
       let anyActual = false;
       const flights = [];
       c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
         const w = periodWeight(f.sd, f.ed);
         if (w <= 0) return;
         const p = FS.calc.flightBudget(f) * w;
@@ -317,6 +373,7 @@
       if (!campMatchesFunnel(c)) return;
       let total = 0;
       c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
         const w = periodWeight(f.sd, f.ed);
         if (w > 0) total += FS.calc.flightBudget(f) * w;
       });
@@ -340,6 +397,7 @@
     FS.state.campaigns.forEach((c) => {
       if (!campMatchesFunnel(c)) return;
       c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
         const w = periodWeight(f.sd, f.ed);
         if (w <= 0) return;
         const key = f.st || 'concept';
@@ -361,12 +419,52 @@
     FS.state.campaigns.forEach((c) => {
       if (!campMatchesFunnel(c)) return;
       c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
         const w = periodWeight(f.sd, f.ed);
         if (w <= 0) return;
         const val = FS.calc.flightBudget(f) * w;
         if (val <= 0) return;
         const key = (f.pot && valid.has(f.pot)) ? f.pot : '';
         totals[key] = (totals[key] || 0) + val;
+      });
+    });
+    return totals;
+  }
+
+  /** Budget per doelgroep (naar rato van periode). Één doelgroep per flight;
+   *  flights zonder doelgroep vallen onder '' (— Geen doelgroep —). */
+  function aggregateAudiences() {
+    ensureFilters();
+    const totals = { '': 0 };
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
+      c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
+        const w = periodWeight(f.sd, f.ed);
+        if (w <= 0) return;
+        const val = FS.calc.flightBudget(f) * w;
+        if (val <= 0) return;
+        const key = FS.utils.audienceKey(f.audience);
+        totals[key] = (totals[key] || 0) + val;
+      });
+    });
+    return totals;
+  }
+
+  /** Budget per geslacht (m/v/b), naar rato van periode. */
+  function aggregateGenders() {
+    ensureFilters();
+    const totals = { m: 0, v: 0, b: 0, '': 0 };
+    FS.state.campaigns.forEach((c) => {
+      if (!campMatchesFunnel(c)) return;
+      c.segs.forEach((f) => {
+        if (!flightMatchesAudience(f)) return;
+        const w = periodWeight(f.sd, f.ed);
+        if (w <= 0) return;
+        const val = FS.calc.flightBudget(f) * w;
+        if (val <= 0) return;
+        const g = (f.audience && f.audience.gender) || '';
+        totals[g] = (totals[g] || 0) + val;
       });
     });
     return totals;
@@ -605,6 +703,59 @@
       + `<td class="num"><strong>100%</strong></td></tr></tfoot></table>`;
   }
 
+  /** Doelgroep-entries (volledige doelgroep) met kleur, grijs voor "geen". */
+  function audienceEntries() {
+    const totals = aggregateAudiences();
+    const list = distinctAudiences();
+    const entries = list.map((x, i) => ({
+      key: x.key,
+      label: x.label,
+      value: totals[x.key] || 0,
+      color: CHART_COLORS[i % CHART_COLORS.length],
+    }));
+    entries.push({ key: '', label: '— Geen doelgroep —', value: totals[''] || 0, color: '#94A3B8' });
+    return entries;
+  }
+
+  function audienceChart() {
+    return barList(audienceEntries());
+  }
+
+  /** Balkenlijst budget per geslacht (man/vrouw/beide + geen). */
+  function genderChart() {
+    const totals = aggregateGenders();
+    const colors = { m: '#3B82F6', v: '#EC4899', b: '#8B5CF6' };
+    const entries = FS.constants.GENDERS.map((g) => ({
+      label: `${g.icon ? g.icon + ' ' : ''}${g.name}`,
+      value: totals[g.id] || 0,
+      color: colors[g.id] || '#0026C5',
+    }));
+    entries.push({ label: '— Geen doelgroep —', value: totals[''] || 0, color: '#94A3B8' });
+    return barList(entries);
+  }
+
+  /** Tabel: budget + aandeel per doelgroep. */
+  function audienceTable(entries) {
+    const valid = entries.filter((e) => e.value > 0).sort((a, b) => b.value - a.value);
+    if (!valid.length) {
+      return `<div class="ins-empty">Nog geen budget aan doelgroepen toegewezen — stel een doelgroep in per flight.</div>`;
+    }
+    const sum = valid.reduce((a, e) => a + e.value, 0);
+    let tbody = '';
+    valid.forEach((e) => {
+      const share = ((e.value / sum) * 100).toFixed(1);
+      const dot = `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${e.color};margin-right:6px;vertical-align:middle"></span>`;
+      tbody += `<tr><td>${dot}<strong>${esc(e.label)}</strong></td>`
+        + `<td class="num">${esc(fC(e.value))}</td>`
+        + `<td class="num">${share}%</td></tr>`;
+    });
+    return `<table class="ins-table">`
+      + `<thead><tr><th>Doelgroep</th><th class="num">Budget</th><th class="num">Aandeel</th></tr></thead>`
+      + `<tbody>${tbody}</tbody>`
+      + `<tfoot><tr><td><strong>Totaal</strong></td><td class="num"><strong>${esc(fC(sum))}</strong></td>`
+      + `<td class="num"><strong>100%</strong></td></tr></tfoot></table>`;
+  }
+
   /** Tabel: budget + aandeel + betrokken kanalen per inkoopprotocol. */
   function buyingProtocolTable(entries) {
     const valid = entries.filter((e) => e.value > 0);
@@ -703,6 +854,10 @@
       const ai = tabList.findIndex((t) => t.id === 'actuals');
       tabList.splice(ai < 0 ? tabList.length : ai, 0, { id: 'pots', label: '🪙 Potjes' });
     }
+    if (audiencesEnabled()) {
+      const ai = tabList.findIndex((t) => t.id === 'actuals');
+      tabList.splice(ai < 0 ? tabList.length : ai, 0, { id: 'audience', label: '👥 Doelgroepen' });
+    }
     if (!tabList.some((t) => t.id === activeTab)) activeTab = 'overview';
 
     // Gefilterde aggregaties
@@ -731,10 +886,15 @@
     const activeChan = filters.channels.size;
     const totalFn = FS.state.funnelStages.length + 1; // +1 voor "geen"
     const activeFn = filters.funnel.size;
+    const audEnabled = audiencesEnabled();
+    const audKeysAll = allAudienceKeys();
+    const totalAud = audKeysAll.size;
+    const activeAud = [...filters.audience].filter((k) => audKeysAll.has(k)).length;
     const isFiltered = filters.from !== `${s.year}-01-01`
       || filters.to !== `${s.year}-12-31`
       || activeChan !== totalChan
-      || activeFn !== totalFn;
+      || activeFn !== totalFn
+      || (audEnabled && activeAud !== totalAud);
 
     // Channel-chips (in collapsible details)
     const chanBoxes = FS.constants.CHANNELS.map((ch) => {
@@ -750,6 +910,15 @@
     }).join('');
     const noneOn = filters.funnel.has('');
     const funnelNone = `<label class="ins-funnel${noneOn ? '' : ' off'}"><input type="checkbox" data-fn=""${noneOn ? ' checked' : ''} style="display:none"> — geen —</label>`;
+
+    // Doelgroep-chips (data-afgeleid; alleen getoond als de feature aanstaat)
+    const audDistinct = distinctAudiences();
+    const audBoxes = audDistinct.map((x) => {
+      const on = filters.audience.has(x.key);
+      return `<label class="ins-aud${on ? '' : ' off'}"><input type="checkbox" data-aud="${esc(x.key)}"${on ? ' checked' : ''} style="display:none"> ${esc(x.label)}</label>`;
+    }).join('');
+    const audNoneOn = filters.audience.has('');
+    const audNone = `<label class="ins-aud${audNoneOn ? '' : ' off'}"><input type="checkbox" data-aud=""${audNoneOn ? ' checked' : ''} style="display:none"> — geen —</label>`;
 
     let h = `<div class="ins-filters">`
       + `<div class="ins-filt-row">`
@@ -773,6 +942,16 @@
       + `<button class="mbtn mini" id="insFnNone">Geen</button>`
       + `</div>`
       + `</div>`
+      + (audEnabled
+        ? `<div class="ins-filt-row">`
+          + `<div class="ins-filt-l">👥 Doelgroep <span class="ins-filt-mini">(${activeAud}/${totalAud})</span></div>`
+          + `<div class="ins-funnels">${audBoxes}${audNone}</div>`
+          + `<div class="ins-filt-grp" style="margin-left:auto">`
+          + `<button class="mbtn mini" id="insAudAll">Alle</button>`
+          + `<button class="mbtn mini" id="insAudNone">Geen</button>`
+          + `</div>`
+          + `</div>`
+        : '')
       + `<details class="ins-filt-details"${activeChan !== totalChan ? ' open' : ''}>`
       + `<summary>📊 Kanalen (${activeChan}/${totalChan})</summary>`
       + `<div class="ins-filt-detail-body">`
@@ -782,7 +961,7 @@
       + `<button class="mbtn mini" id="insChanNone">Geen</button>`
       + `</div></div></details>`
       + (isFiltered
-        ? `<div class="ins-filt-note">⚠ Gefilterde weergave — bedragen zijn naar rato van geselecteerde periode/kanalen/funnel.</div>`
+        ? `<div class="ins-filt-note">⚠ Gefilterde weergave — bedragen zijn naar rato van geselecteerde periode/kanalen/funnel/doelgroep.</div>`
         : '')
       + `</div>`;
 
@@ -844,6 +1023,19 @@
         + `</div>`;
       h += section('🪙 Budget per potje', budgetPotChart());
       h += section('📋 Potje-overzicht', budgetPotTable(budgetPotEntries()));
+    } else if (activeTab === 'audience') {
+      const audEntries = audienceEntries();
+      const audAssigned = audEntries.filter((e) => e.key).reduce((a, e) => a + e.value, 0);
+      const audNoneVal = audEntries.filter((e) => !e.key).reduce((a, e) => a + e.value, 0);
+      const nAud = audEntries.filter((e) => e.key && e.value > 0).length;
+      h += `<div class="ins-grid">`
+        + kpi('👥 Doelgroepen', String(nAud))
+        + kpi('📦 Met doelgroep', fC(audAssigned))
+        + kpi(audNoneVal > 0 ? '❓ Zonder doelgroep' : '✓ Zonder doelgroep', fC(audNoneVal), audNoneVal > 0 ? 'neg' : 'pos')
+        + `</div>`;
+      h += section('👥 Budget per doelgroep', audienceChart());
+      h += section('⚧ Budget per geslacht', genderChart());
+      h += section('📋 Doelgroep-overzicht', audienceTable(audEntries));
     } else if (activeTab === 'actuals') {
       const camps = collectCampaignActuals();
       const totP = camps.reduce((a, c) => a + c.planned, 0);
@@ -951,6 +1143,27 @@
         render();
       });
     });
+
+    const audAll = document.getElementById('insAudAll');
+    if (audAll) audAll.addEventListener('click', () => {
+      filters.audience = new Set(allAudienceKeys());
+      render();
+    });
+    const audNone = document.getElementById('insAudNone');
+    if (audNone) audNone.addEventListener('click', () => {
+      filters.audience = new Set();
+      render();
+    });
+    document.querySelectorAll('#insBody .ins-aud').forEach((lbl) => {
+      lbl.addEventListener('click', (e) => {
+        e.preventDefault();
+        const cb = lbl.querySelector('input[data-aud]');
+        if (!cb) return;
+        const key = cb.dataset.aud;
+        if (filters.audience.has(key)) filters.audience.delete(key); else filters.audience.add(key);
+        render();
+      });
+    });
   }
 
   /* =====================  PDF RAPPORT  ===================== */
@@ -968,6 +1181,8 @@
     const buyingHtml = buyingProtocolTable(buyingProtocolEntries());
     const potsOn = !!(s.settings && s.settings.pots && s.settings.pots.enabled);
     const potHtml = potsOn ? budgetPotTable(budgetPotEntries()) : '';
+    const audOn = audiencesEnabled();
+    const audHtml = audOn ? audienceTable(audienceEntries()) : '';
     const spendHtml = stackedBars(aggregateMonthlySpend());
     const splitHtml = splitBar(aggregateSectionSplit());
     const actuals = collectActuals();
@@ -1056,6 +1271,8 @@ ${channelHtml}
 ${buyingHtml}
 
 ${potsOn ? `<h2>🪙 Budget per potje</h2>${potHtml}` : ''}
+
+${audOn ? `<h2>👥 Budget per doelgroep</h2>${audHtml}` : ''}
 
 <h2>�📈 Spend curve per maand</h2>
 ${spendHtml}
