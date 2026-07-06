@@ -83,7 +83,7 @@
     FS.state.selectedTactic = null;
     FS.render.render();
   }
-  function openSett() { renderSettings(); document.getElementById('settBg').classList.add('open'); }
+  function openSett(tab) { setSettingsTab(tab); renderSettings(); document.getElementById('settBg').classList.add('open'); }
   function closeSett() {
     document.getElementById('settBg').classList.remove('open');
     FS.render.render();
@@ -523,12 +523,36 @@
   }
 
   /* ------- Settings ------- */
+  // Actieve tab in de instellingen. 'personalisatie' = functies aan/uit +
+  // funnelmodel + communicatie; 'budget' = budget & kosten (los gekoppeld).
+  let activeSettingsTab = 'personalisatie';
+  function setSettingsTab(tab) {
+    if (tab === 'budget' || tab === 'personalisatie') activeSettingsTab = tab;
+  }
+
   function renderSettings() {
+    const tabs = [
+      { id: 'personalisatie', label: '⚙️ Personalisatie' },
+      { id: 'budget', label: '💰 Budget & kosten' },
+    ];
+    let h = `<div class="set-tabs">` + tabs.map((t) =>
+      `<button class="set-tab${activeSettingsTab === t.id ? ' on' : ''}" data-settab="${a(t.id)}">${esc(t.label)}</button>`,
+    ).join('') + `</div><div class="set-pane">`;
+    h += activeSettingsTab === 'budget' ? renderSettingsBudget() : renderSettingsPersonalisatie();
+    h += `</div>`;
+    document.getElementById('settBody').innerHTML = h;
+  }
+
+  /** Budget & kosten — losgekoppeld van de overige instellingen. Beheert het
+   *  jaarbudget, creatie, tooling, uren en de handling fees. */
+  function renderSettingsBudget() {
     const s = FS.state;
     const bj = s.budgetJournal;
 
+    let h = `<p class="set-intro">Beheer het jaarbudget en de bijkomende kosten (creatie, tooling, uren en handling fees).</p>`;
+
     // -- Budget --
-    let h = `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-bg">💰</span><h4>Budget</h4></div><div class="ss-body">`
+    h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-bg">💰</span><h4>Budget</h4></div><div class="ss-body">`
       + `<div class="j-row j-row-base"><span class="j-lbl">Basisbudget</span>`
       + `<span class="cur-wrap cur-j" style="width:100%;display:inline-block"><span class="cur-sym">€</span><input type="number" class="j-amt" id="sjBase" value="${bj.base}" step="1000"></span></div>`;
     bj.mods.forEach((m, i) => { h += journalRow('bj', i, m, 1000); });
@@ -572,6 +596,16 @@
         + `<div class="fi-input"><input type="number" class="sf-in" data-ch="${a(ch.id)}" value="${a(dp)}" placeholder="0" min="0" max="50" step="any"><span class="fi-suf">%</span></div></div>`;
     });
     h += `</div></div></section>`;
+
+    return h;
+  }
+
+  /** Personalisatie — zet functies aan die je nodig hebt en stel het funnelmodel
+   *  en de klantcommunicatie in. Los van het budget. */
+  function renderSettingsPersonalisatie() {
+    const s = FS.state;
+
+    let h = `<p class="set-intro">Personaliseer de tool: zet functies aan die je nodig hebt en stel het funnelmodel en de klantcommunicatie in.</p>`;
 
     // -- Funnelmodel (instelbaar) --
     const stages = s.funnelStages || [];
@@ -639,7 +673,7 @@
     // -- Communicatie naar klant (incl./excl. CTC + BTW) --
     h += renderCommSection();
 
-    document.getElementById('settBody').innerHTML = h;
+    return h;
   }
 
   /** Communicatie-instellingen: bepaalt of de handling fee IN de budgetten zit
@@ -824,5 +858,6 @@
     checkCampBudget, clampFlightTactics, showCampModal, showFlightModal, showTacticModal,
     renderSettings, addFlight, addTactic, clampFunnelHierarchy,
     actualizeFlight, reopenFlight, unlockCampaign, notifyPendingActuals,
+    setSettingsTab,
   };
 })(window.FS = window.FS || {});

@@ -89,6 +89,76 @@
     render();
   }
 
+  /* ----- Status-filter (gantt): null = alles tonen ----- */
+  let statusFilter = null;
+  function statusIds() { return FS.constants.STATUSES.map((s) => s.id); }
+  function isStatusVisible(id) { if (!statusFilter) return true; return statusFilter.has(id); }
+  /** Campagne zichtbaar zodra één van haar flights een geselecteerde status heeft
+   *  (campagne zonder flights blijft altijd zichtbaar). */
+  function isCampStatusVisible(c) {
+    if (!statusFilter) return true;
+    const segs = c.segs || [];
+    if (!segs.length) return true;
+    return segs.some((f) => statusFilter.has(f.st || 'concept'));
+  }
+  function setStatusVisible(id, on) {
+    const keys = statusIds();
+    if (!statusFilter) statusFilter = new Set(keys);
+    if (on) statusFilter.add(id); else statusFilter.delete(id);
+    if (keys.every((k) => statusFilter.has(k))) statusFilter = null;
+    render();
+    renderFilterModal();
+  }
+  function setStatusAll(on) { statusFilter = on ? null : new Set(); render(); renderFilterModal(); }
+
+  /* ----- Doelgroep-filter (gantt): null = alles tonen ----- */
+  let audienceFilter = null;
+  function audiencesOn() {
+    return !!(FS.state.settings && FS.state.settings.audiences && FS.state.settings.audiences.enabled);
+  }
+  /** Alle voorkomende doelgroep-sleutels (incl. '' = geen doelgroep). */
+  function ganttAudKeys() {
+    const keys = new Set(['']);
+    FS.state.campaigns.forEach((c) => (c.segs || []).forEach((f) => keys.add(FS.utils.audienceKey(f.audience))));
+    return [...keys];
+  }
+  /** Unieke doelgroepen (excl. '') als {key,label}, gesorteerd op label. */
+  function ganttDistinctAuds() {
+    const map = new Map();
+    FS.state.campaigns.forEach((c) => (c.segs || []).forEach((f) => {
+      const k = FS.utils.audienceKey(f.audience);
+      if (k && !map.has(k)) map.set(k, FS.utils.audienceLabel(f.audience));
+    }));
+    return [...map.entries()].map(([key, label]) => ({ key, label }))
+      .sort((x, y) => x.label.localeCompare(y.label));
+  }
+  function isGAudVisible(key) { if (!audienceFilter) return true; return audienceFilter.has(key); }
+  function isCampAudVisible(c) {
+    if (!audienceFilter || !audiencesOn()) return true;
+    const segs = c.segs || [];
+    if (!segs.length) return true;
+    return segs.some((f) => audienceFilter.has(FS.utils.audienceKey(f.audience)));
+  }
+  function setGAudVisible(key, on) {
+    const keys = ganttAudKeys();
+    if (!audienceFilter) audienceFilter = new Set(keys);
+    if (on) audienceFilter.add(key); else audienceFilter.delete(key);
+    if (keys.every((k) => audienceFilter.has(k))) audienceFilter = null;
+    render();
+    renderFilterModal();
+  }
+  function setGAudAll(on) { audienceFilter = on ? null : new Set(); render(); renderFilterModal(); }
+
+  /** Aantal actieve gantt-filters (wijkt af van "alles"). Voor het filterknopje. */
+  function activeFilterCount() {
+    let n = 0;
+    if (funnelFilter) n += 1;
+    if (brandFilter) n += 1;
+    if (statusFilter) n += 1;
+    if (audienceFilter && audiencesOn()) n += 1;
+    return n;
+  }
+
   /** Eén bar in het Gantt-grid. */
   function barHTML(sd, ed, color, textColor, name, budget, status, dataAttrs, flags) {
     const rng = FS.viewport.dateColRange(sd, ed);
@@ -321,7 +391,7 @@
       // Groepeer altijd: eerst losse campagnes, daarna Always-On. Zo voorkomen
       // we dat een willekeurig gesorteerd JSON-bestand meerdere sectiekoppen
       // produceert tussen de campagnes door.
-      const visible = camps.filter((c) => isCampFunnelVisible(c));
+      const visible = camps.filter((c) => isCampFunnelVisible(c) && isCampStatusVisible(c) && isCampAudVisible(c));
       const brands = getBrands();
       if (brands.length) {
         // ---- Merk-modus: groepeer campagnes per (sub-)merk ----
@@ -351,7 +421,7 @@
         const aoList = visible.filter((c) => c.sec === 'ao');
         const ordered = losseList.concat(aoList);
         if (!ordered.length) {
-          html += `<div class="g-empty" style="padding:24px"><div class="g-empty-sub">Geen campagnes voldoen aan het funnel-filter. Pas het filter aan via de legenda onderaan.</div></div>`;
+          html += `<div class="g-empty" style="padding:24px"><div class="g-empty-sub">Geen campagnes voldoen aan de huidige filters. Pas ze aan via het filterknopje in de balk bovenaan.</div></div>`;
         }
         let lastSec = '';
         ordered.forEach((c) => {
@@ -416,45 +486,85 @@
       + `<div class="scard s-rest"><div class="sl">Resterend${hasActuals ? ' (actual)' : ''}</div><div class="sv" style="color:${rest < 0 ? '#DC2626' : '#059669'}">${esc(fC(rest))}</div></div>`;
   }
 
-  /** Merkfilter-balk boven de Gantt. Alleen zichtbaar in merk-modus (≥1 merk). */
-  function renderBrandBar() {
-    const bar = document.getElementById('brandBar');
-    if (!bar) return;
-    const brands = getBrands();
-    if (!brands.length) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
-    bar.style.display = '';
-    const hasBrandless = FS.state.campaigns.some((c) => !c.brand);
-    let html = `<span class="leg-lbl">Merken</span>`;
-    const all = !brandFilter;
-    html += `<button class="g-brand-pill${all ? ' on' : ''}" data-brand="__all" title="Alle merken tonen">Alle</button>`;
-    brands.forEach((b, i) => {
-      const on = isBrandVisible(b);
-      const col = brandColor(i);
-      html += `<button class="g-brand-pill${on ? ' on' : ''}" data-brand="${a(b)}" style="${on ? `background:${a(col)};color:#fff;border-color:${a(col)}` : ''}" title="${a(b)}">`
-        + `${on ? '' : `<span class="g-brand-dot" style="background:${a(col)}"></span>`}${esc(b)}</button>`;
-    });
-    if (hasBrandless) {
-      const on = isBrandVisible('');
-      html += `<button class="g-brand-pill${on ? ' on' : ''}" data-brand="" title="Campagnes zonder merk">— Geen merk —</button>`;
-    }
-    bar.innerHTML = html;
+  /* ----- Filter-popup voor de Gantt (vervangt de oude inline filterbalken) -----
+   * Bundelt funnel-, merk-, status- en doelgroepfilters in één modal, net als de
+   * flight-/campagne-modals. Wordt alleen opnieuw opgebouwd wanneer geopend. */
+  function gfChip(type, key, label, on, color) {
+    const style = on && color ? ` style="background:${a(color)};border-color:${a(color)};color:#fff"` : '';
+    const dot = on ? '' : `<span class="gf-dot" style="background:${a(color || '#94A3B8')}"></span>`;
+    return `<button class="gf-chip${on ? ' on' : ''}" data-gf="${a(type)}" data-key="${a(key)}"${style}>${dot}${label}</button>`;
   }
+  function gfSection(title, type, allOn, chipsHtml) {
+    return `<section class="gf-section"><div class="gf-sec-head"><span class="gf-sec-title">${title}</span>`
+      + `<button class="gf-all${allOn ? ' on' : ''}" data-gf="${a(type)}" data-key="__all">Alle</button></div>`
+      + `<div class="gf-chips">${chipsHtml}</div></section>`;
+  }
+  function renderFilterModal() {
+    const bg = document.getElementById('filterBg');
+    if (!bg || !bg.classList.contains('open')) return;
+    const body = document.getElementById('filterBody');
+    if (!body) return;
 
-  function renderFunnelBar() {
-    const bar = document.getElementById('funnelBar');
-    if (!bar) return;
-    let html = `<span class="leg-lbl">Funnel</span>`;
-    const all = !funnelFilter;
-    html += `<button class="g-funnel-pill g-funnel-all${all ? ' on' : ''}" data-fs="__all" title="Alle fases tonen">Alle</button>`;
-    FS.state.funnelStages.forEach((st) => {
-      const on = isFunnelVisible(st.id);
-      html += `<button class="g-funnel-pill${on ? '' : ' off'}" data-fs="${a(st.id)}" title="${a(st.name)}"><span class="g-fn-dot" style="background:${a(st.color)}"></span>${esc(st.name)}</button>`;
-    });
-    const noneOn = isFunnelVisible('');
-    html += `<button class="g-funnel-pill${noneOn ? '' : ' off'}" data-fs="" title="Campagnes zonder funnelfase"><span class="g-fn-dot" style="background:#94A3B8"></span>Geen</button>`;
-    const hidden = document.body.classList.contains('legend-hidden');
-    html += `<button class="leg-toggle" id="legToggle" title="Toon/verberg de legenda onderaan">${hidden ? 'Toon legenda' : 'Verberg legenda'}</button>`;
-    bar.innerHTML = html;
+    let h = '';
+
+    // Funnelfase
+    const fnChips = FS.state.funnelStages.map((st) =>
+      gfChip('funnel', st.id, `${st.icon ? esc(st.icon) + ' ' : ''}${esc(st.name)}`, isFunnelVisible(st.id), st.color),
+    ).join('') + gfChip('funnel', '', 'Geen funnelfase', isFunnelVisible(''), '#94A3B8');
+    h += gfSection('🪜 Funnelfase', 'funnel', !funnelFilter, fnChips);
+
+    // Merken (alleen in merk-modus)
+    const brands = getBrands();
+    if (brands.length) {
+      let bc = brands.map((b, i) => gfChip('brand', b, esc(b), isBrandVisible(b), brandColor(i))).join('');
+      if (FS.state.campaigns.some((c) => !c.brand)) bc += gfChip('brand', '', 'Geen merk', isBrandVisible(''), '#94A3B8');
+      h += gfSection('🏢 Merken', 'brand', !brandFilter, bc);
+    }
+
+    // Status
+    const stChips = FS.constants.STATUSES.map((st) =>
+      gfChip('status', st.id, esc(st.name), isStatusVisible(st.id), st.color || '#0026C5'),
+    ).join('');
+    h += gfSection('🚦 Status', 'status', !statusFilter, stChips);
+
+    // Doelgroepen (alleen als de functie aanstaat)
+    if (audiencesOn()) {
+      let ac = ganttDistinctAuds().map((x) => gfChip('aud', x.key, esc(x.label), isGAudVisible(x.key), '#8B5CF6')).join('');
+      ac += gfChip('aud', '', 'Geen doelgroep', isGAudVisible(''), '#94A3B8');
+      h += gfSection('👥 Doelgroep', 'aud', !audienceFilter, ac);
+    }
+
+    // Weergave: legenda tonen/verbergen (voorheen in de funnelbalk)
+    const legendHidden = document.body.classList.contains('legend-hidden');
+    h += `<section class="gf-section"><div class="gf-sec-head"><span class="gf-sec-title">🎨 Weergave</span></div>`
+      + `<div class="ss-toggle" style="padding:2px 0"><label for="gfLegend">Legenda onderaan tonen`
+      + `<span class="ss-hint-sm">De kleurenlegenda onder de Gantt.</span></label>`
+      + `<div class="tg-sw${legendHidden ? '' : ' on'}" id="gfLegend" role="switch" aria-checked="${!legendHidden}" tabindex="0"></div></div></section>`;
+
+    const n = activeFilterCount();
+    h += `<div class="gf-foot"><button class="mbtn gf-reset" id="gfReset">↺ Alles tonen</button>`
+      + `<span class="gf-count">${n ? `${n} filter${n === 1 ? '' : 's'} actief` : 'Geen filters actief'}</span></div>`;
+
+    body.innerHTML = h;
+  }
+  function openFilters() {
+    const bg = document.getElementById('filterBg');
+    if (!bg) return;
+    bg.classList.add('open');
+    renderFilterModal();
+  }
+  function closeFilters() {
+    const bg = document.getElementById('filterBg');
+    if (bg) bg.classList.remove('open');
+  }
+  /** Zet alle gantt-filters terug op "alles tonen". */
+  function resetFilters() {
+    funnelFilter = null;
+    brandFilter = null;
+    statusFilter = null;
+    audienceFilter = null;
+    render();
+    renderFilterModal();
   }
 
   function renderLegend() {
@@ -473,8 +583,7 @@
   function render() {
     renderGantt();
     renderSummary();
-    renderBrandBar();
-    renderFunnelBar();
+    renderFilterModal();
     renderLegend();
     if (FS._refreshRangeUI) FS._refreshRangeUI();
     FS.io.autoSave();
@@ -503,7 +612,10 @@
       + '</div>';
   }
 
-  FS.render = { render, renderGantt, renderSummary, renderLegend, renderFunnelBar, renderBrandBar, barHTML, palHTML, positionNowLine,
+  FS.render = { render, renderGantt, renderSummary, renderLegend, renderFilterModal, barHTML, palHTML, positionNowLine,
     setFunnelStage, setFunnelAll, isFunnelVisible, funnelStageInfo,
-    getBrands, brandColor, isBrandVisible, setBrandVisible, setBrandAll };
+    getBrands, brandColor, isBrandVisible, setBrandVisible, setBrandAll,
+    isStatusVisible, setStatusVisible, setStatusAll,
+    isGAudVisible, setGAudVisible, setGAudAll,
+    openFilters, closeFilters, resetFilters, activeFilterCount };
 })(window.FS = window.FS || {});

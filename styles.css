@@ -1241,3 +1241,35 @@ html[data-theme="dark"] .mf-aud-num{background:var(--surface-2);border-color:var
 html[data-theme="dark"] .ins-aud{background:var(--surface);border-color:var(--border);color:var(--text)}
 html[data-theme="dark"] .ins-aud.off{background:var(--surface-2);opacity:.5}
 
+/* =====================================================================
+   FEEDBACK v21 — Instellingen-tabs (budget losgekoppeld) + Gantt-filterpopup
+   ===================================================================== */
+/* Tabs bovenaan de instellingen */
+.set-tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:2px}
+.set-tab{appearance:none;border:none;background:none;font-family:inherit;font-size:12px;font-weight:700;color:var(--text-3);padding:8px 14px;border-radius:8px 8px 0 0;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px}
+.set-tab:hover{color:var(--heading);background:rgba(0,38,197,.05)}
+.set-tab.on{color:#0026C5;border-bottom-color:#0026C5}
+html[data-theme="dark"] .set-tab.on{color:var(--primary);border-bottom-color:var(--primary)}
+.set-intro{font-size:11px;color:var(--text-2);margin:0 0 14px;line-height:1.5}
+
+/* Gantt-filterpopup: secties met chips */
+#filterBody{padding:16px 20px 20px;background:#F8FAFC}
+html[data-theme="dark"] #filterBody{background:#0d1424}
+.gf-section{background:#fff;border:1px solid #E5E7EB;border-radius:12px;margin-bottom:12px;padding:12px 14px}
+html[data-theme="dark"] .gf-section{background:var(--surface);border-color:var(--border)}
+.gf-sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.gf-sec-title{font-size:12px;font-weight:800;color:var(--heading)}
+.gf-all{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font-family:inherit;font-size:10px;font-weight:700;padding:3px 10px;border-radius:12px;cursor:pointer}
+.gf-all.on{background:#0026C5;border-color:#0026C5;color:#fff}
+html[data-theme="dark"] .gf-all.on{background:var(--primary);border-color:var(--primary)}
+.gf-all:hover{border-color:#0026C5}
+.gf-chips{display:flex;flex-wrap:wrap;gap:6px}
+.gf-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#1E293B;background:#fff;border:1.5px solid #E5E7EB;border-radius:15px;padding:5px 11px;cursor:pointer;user-select:none;transition:all .12s}
+.gf-chip:hover{border-color:#0026C5}
+.gf-chip .gf-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.gf-chip.on{color:#fff;border-color:transparent}
+html[data-theme="dark"] .gf-chip{background:var(--surface-2);border-color:var(--border);color:var(--text)}
+.gf-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px}
+.gf-count{font-size:10px;color:var(--text-3);font-weight:600}
+.gf-reset{font-size:11px}
+

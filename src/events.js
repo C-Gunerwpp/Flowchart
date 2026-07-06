@@ -203,12 +203,38 @@
       });
     }
 
-    /* ----- Filters tonen/verbergen (funnel- en merkbalk) ----- */
+    /* ----- Gantt-filters (popup i.p.v. inline balken) ----- */
     const btnFilters = document.getElementById('btnFilters');
     if (btnFilters) {
-      btnFilters.addEventListener('click', () => {
-        const on = document.body.classList.toggle('show-filters');
-        btnFilters.classList.toggle('on', on);
+      btnFilters.addEventListener('click', () => FS.render.openFilters());
+    }
+    const filterCloseBtn = document.getElementById('filterClose');
+    if (filterCloseBtn) filterCloseBtn.addEventListener('click', () => FS.render.closeFilters());
+    const filterBgEl = document.getElementById('filterBg');
+    if (filterBgEl) filterBgEl.addEventListener('click', (e) => { if (e.target === filterBgEl) FS.render.closeFilters(); });
+    const filterBodyEl = document.getElementById('filterBody');
+    if (filterBodyEl) {
+      filterBodyEl.addEventListener('click', (e) => {
+        if (e.target.closest('#gfLegend')) {
+          document.body.classList.toggle('legend-hidden');
+          FS.render.render();
+          return;
+        }
+        if (e.target.closest('#gfReset')) { FS.render.resetFilters(); return; }
+        const chip = e.target.closest('[data-gf]');
+        if (!chip) return;
+        const type = chip.dataset.gf;
+        const key = chip.dataset.key;
+        const R = FS.render;
+        if (type === 'funnel') {
+          if (key === '__all') R.setFunnelAll(true); else R.setFunnelStage(key, !R.isFunnelVisible(key));
+        } else if (type === 'brand') {
+          if (key === '__all') R.setBrandAll(true); else R.setBrandVisible(key, !R.isBrandVisible(key));
+        } else if (type === 'status') {
+          if (key === '__all') R.setStatusAll(true); else R.setStatusVisible(key, !R.isStatusVisible(key));
+        } else if (type === 'aud') {
+          if (key === '__all') R.setGAudAll(true); else R.setGAudVisible(key, !R.isGAudVisible(key));
+        }
       });
     }
 
@@ -245,7 +271,7 @@
       btnNewCampTop.addEventListener('click', () => addCampaign());
     }
 
-    document.getElementById('btnSett').addEventListener('click', FS.modals.openSett);
+    document.getElementById('btnSett').addEventListener('click', () => FS.modals.openSett('personalisatie'));
     document.getElementById('btnUndo').addEventListener('click', () => FS.history && FS.history.undo());
     document.getElementById('btnRedo').addEventListener('click', () => FS.history && FS.history.redo());
     document.getElementById('btnIns').addEventListener('click', () => FS.insights && FS.insights.open());
@@ -316,44 +342,6 @@
     const ttEl = document.getElementById('ttip');
     let ttTimer = null;
     const gantt = document.getElementById('gantt');
-
-    /* Funnel-bar (boven de gantt): funnel-filter pillen + legenda-toggle */
-    const funnelBarEl = document.getElementById('funnelBar');
-    if (funnelBarEl) {
-      funnelBarEl.addEventListener('click', (e) => {
-        const toggle = e.target.closest('#legToggle');
-        if (toggle) {
-          document.body.classList.toggle('legend-hidden');
-          FS.render.renderFunnelBar();
-          return;
-        }
-        const pill = e.target.closest('.g-funnel-pill');
-        if (!pill) return;
-        const fs = pill.dataset.fs;
-        if (fs === '__all') {
-          FS.render.setFunnelAll(true);
-          return;
-        }
-        const on = FS.render.isFunnelVisible(fs);
-        FS.render.setFunnelStage(fs, !on);
-      });
-    }
-
-    /* Merk-balk (boven de gantt): merkfilter-pillen voor geconsolideerde overzichten */
-    const brandBarEl = document.getElementById('brandBar');
-    if (brandBarEl) {
-      brandBarEl.addEventListener('click', (e) => {
-        const pill = e.target.closest('.g-brand-pill');
-        if (!pill) return;
-        const brand = pill.dataset.brand;
-        if (brand === '__all') {
-          FS.render.setBrandAll(true);
-          return;
-        }
-        const on = FS.render.isBrandVisible(brand);
-        FS.render.setBrandVisible(brand, !on);
-      });
-    }
 
     gantt.addEventListener('click', (e) => {
       const t = e.target;
@@ -996,6 +984,12 @@
 
     settBody.addEventListener('click', (e) => {
       const t = e.target;
+      const tabBtn = t.closest('.set-tab');
+      if (tabBtn) {
+        FS.modals.setSettingsTab(tabBtn.dataset.settab);
+        FS.modals.renderSettings();
+        return;
+      }
       if (t.classList.contains('sjm-add')) {
         const obj = getJournal(t.dataset.j);
         if (obj) { obj.mods.push({ a: 0, n: '' }); afterSettChange(); }
@@ -1082,7 +1076,7 @@
     document.getElementById('summaryBar').addEventListener('click', (e) => {
       const card = e.target.closest('.scard');
       if (!card) return;
-      if (card.id === 'scJ' || card.id === 'scC' || card.id === 'scT' || card.id === 'scFee') FS.modals.openSett();
+      if (card.id === 'scJ' || card.id === 'scC' || card.id === 'scT' || card.id === 'scFee') FS.modals.openSett('budget');
     });
 
     /* ----- Empty-state knoppen ----- */
