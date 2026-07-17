@@ -18,6 +18,8 @@
       client: s.client,
       campaigns: s.campaigns,
       fees: s.fees,
+      feeTiers: s.feeTiers,
+      comm: s.settings && s.settings.comm,
       jaarTotal: s.jaarTotal,
       budgetJournal: s.budgetJournal,
       creatieJournal: s.creatieJournal,
@@ -49,6 +51,8 @@
     if (data.client !== undefined) FS.state.client = data.client;
     if (data.campaigns) FS.state.campaigns = JSON.parse(JSON.stringify(data.campaigns));
     if (data.fees) FS.state.fees = JSON.parse(JSON.stringify(data.fees));
+    FS.state.feeTiers = FS.state.mergeFeeTiers(data.feeTiers);
+    if (data.comm) FS.state.settings = FS.state.mergeSettings(Object.assign({}, FS.state.settings || {}, { comm: data.comm }));
     if (data.jaarTotal !== undefined) FS.state.jaarTotal = data.jaarTotal;
     if (data.budgetJournal) FS.state.budgetJournal = JSON.parse(JSON.stringify(data.budgetJournal));
     if (data.creatieJournal) FS.state.creatieJournal = JSON.parse(JSON.stringify(data.creatieJournal));

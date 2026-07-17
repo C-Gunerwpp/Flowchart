@@ -22,6 +22,7 @@
         D: s.campaigns,
         n: s.nextId,
         fees: s.fees,
+        ft: s.feeTiers,
         yr: s.year,
         client: s.client,
         settings: s.settings,
@@ -66,6 +67,7 @@
       s.campaigns = d.D || [];
       s.nextId = d.n || 100;
       s.fees = d.fees || {};
+      s.feeTiers = FS.state.mergeFeeTiers(d.ft);
       s.settings = FS.state.mergeSettings(d.settings);
       normalize(s.campaigns);
     } catch (_e) {
@@ -95,6 +97,9 @@
       });
     });
     if (d.settings && typeof d.settings !== 'object') probs.push('settings is geen object');
+    if (d.settings && d.settings.feeTiers != null && typeof d.settings.feeTiers !== 'object') {
+      probs.push('settings.feeTiers is geen object');
+    }
     return probs;
   }
 
@@ -120,6 +125,7 @@
         uren: s.urenJournal,
         funnelStages: s.funnelStages,
         fees: s.fees,
+        feeTiers: s.feeTiers,
         year: s.year,
         user: s.settings,
       },
@@ -202,6 +208,7 @@
           ? settings.funnelStages
           : FS.state.defaultFunnelStages();
         s.fees = settings.fees || {};
+        s.feeTiers = FS.state.mergeFeeTiers(settings.feeTiers);
         s.year = settings.year || FS.constants.DEFAULT_YEAR;
         s.settings = FS.state.mergeSettings(settings.user);
         s.client = (d.meta && d.meta.client) || '';
@@ -280,45 +287,88 @@
     let h = `<html><head><meta charset="UTF-8"><style>td,th{border:1px solid #999;padding:4px 6px;font-family:Calibri;font-size:10pt}th{background:#000050;color:#fff;font-weight:bold}.tot{background:#E0E7FF;font-weight:bold}.hdr{font-size:14pt;font-weight:bold;padding:8px}</style></head><body>`;
     if (s.client) h += `<div class="hdr">${esc(s.client)} — Flowchart ${esc(s.year)}</div>`;
     const ct = FS.calc.budgetBreakdown();
+    const feeInfo = FS.calc.feeBreakdown();
     const ctcLine = ct.btwIncluded
       ? `${esc(FS.utils.formatCurrency(ct.ctcInclBtw))} (incl. ${ct.btwPct}% BTW)`
       : esc(FS.utils.formatCurrency(ct.ctc));
-    h += `<div style="font-size:10pt;padding:0 8px 8px;color:#334155">Communicatie: <b>${ct.mode === 'excl' ? 'excl. CTC — handling fee erbovenop' : 'incl. CTC — handling fee in budget'}</b> · Netto media: <b>${esc(FS.utils.formatCurrency(ct.media))}</b> · Handling fee: <b>${esc(FS.utils.formatCurrency(ct.fee))}</b> · Totaal CTC: <b>${ctcLine}</b></div>`;
+    const feeStatus = ct.feeStatus === 'actual' ? 'actual' : ct.feeStatus === 'forecast' ? 'prognose (actual + planned)' : 'planned prognose';
+    const tierText = ct.feeTiersEnabled
+      ? ` · Staffels: <b>per ${ct.feeScope === 'flight' ? 'flight' : 'campagne'} · ${feeStatus}</b> · Feegrondslag: <b>${esc(FS.utils.formatCurrency(ct.feeBase))}</b>`
+      : '';
+    const feeErrorText = ct.feeErrors && ct.feeErrors.length ? ` · <b style="color:#B91C1C">Fee-fout: ${esc(ct.feeErrors[0])}</b>` : '';
+    h += `<div style="font-size:10pt;padding:0 8px 8px;color:#334155">Communicatie: <b>${ct.mode === 'excl' ? 'excl. CTC — handling fee erbovenop' : 'incl. CTC — handling fee in budget'}</b> · Netto media: <b>${esc(FS.utils.formatCurrency(ct.media))}</b> · Handling fee: <b>${esc(FS.utils.formatCurrency(ct.fee))}</b> · Totaal CTC: <b>${ctcLine}</b>${tierText}${feeErrorText}</div>`;
     h += `<table><tr><th>Merk</th><th>Campagne</th><th>Camp.Budget</th><th>Flight</th><th>Fl.Budget</th><th>Status</th><th>Creatie</th><th>Tooling</th><th>Uren</th><th>Tactic</th><th>Budget</th><th>Fee</th><th>Netto</th><th>Start</th><th>Eind</th>`;
     channels.forEach((ch) => { h += `<th>${esc(ch.name)}</th>`; });
     h += `</tr>`;
     let tB = 0, tFe = 0, tCb = 0, tTc = 0, tUb = 0;
     const tCh = {};
     channels.forEach((ch) => { tCh[ch.id] = 0; });
-    s.campaigns.forEach((c) => {
-      c.segs.forEach((f) => {
+    const allocatedRows = (campIndex, flightIndex, tacticIndex) => feeInfo.components.filter((row) =>
+      row.campIndex === campIndex && row.flightIndex === flightIndex && row.tacticIndex === tacticIndex);
+    const rowAmount = (rows) => rows.reduce((sum, row) => sum + row.amount, 0);
+    const rowFee = (rows) => rows.reduce((sum, row) => sum + row.fee, 0);
+    const appendUnassigned = (c, campIndex, f, flightIndex, tactic, tacticIndex) => {
+      const rows = allocatedRows(campIndex, flightIndex, tacticIndex).filter((row) => row.unassigned);
+      if (!rows.length) return;
+      const amount = rowAmount(rows);
+      const fee = rowFee(rows);
+      const net = ct.mode === 'excl' ? amount : amount - fee;
+      tB += amount; tFe += fee;
+      const st = f ? `${f.st || ''}${f.actualized ? ' · actual' : ' · planned'}` : feeStatus;
+      h += `<tr><td>${esc(c.brand || '')}</td><td>${esc(c.label)}</td><td>${c.budget || ''}</td>`
+        + `<td>${f ? esc(f.n || '') : ''}</td><td>${f ? (f.b || '') : ''}</td><td>${esc(st)}</td>`
+        + `<td>${f ? (f.cb || 0) : 0}</td><td>${f ? (f.tc || 0) : 0}</td><td>${f ? (f.ub || 0) : 0}</td>`
+        + `<td><em>Niet toegewezen media${tactic && tactic.n ? ` — ${esc(tactic.n)}` : ''}</em></td><td>${amount.toFixed(2)}</td><td>${fee.toFixed(2)}</td><td>${net.toFixed(2)}</td>`
+        + `<td>${tactic ? esc(tactic.sd) : f ? esc(f.sd) : ''}</td><td>${tactic ? esc(tactic.ed) : f ? esc(f.ed) : ''}</td>`;
+      channels.forEach(() => { h += `<td></td>`; });
+      h += `</tr>`;
+    };
+    s.campaigns.forEach((c, campIndex) => {
+      c.segs.forEach((f, flightIndex) => {
         const cb = f.cb || 0, tc = f.tc || 0, ub = f.ub || 0, st = f.st || '';
         tCb += cb; tTc += tc; tUb += ub;
         if (!f.tac || !f.tac.length) {
           const fb = FS.calc.flightBudget(f);
-          tB += fb;
-          h += `<tr><td>${esc(c.brand || '')}</td><td>${esc(c.label)}</td><td>${c.budget || ''}</td><td>${esc(f.n || '')}</td><td>${f.b || ''}</td><td>${esc(st)}</td><td>${cb}</td><td>${tc}</td><td>${ub}</td><td></td><td>${fb}</td><td>0</td><td>${fb}</td><td>${esc(f.sd)}</td><td>${esc(f.ed)}</td>`;
-          channels.forEach(() => { h += `<td></td>`; });
-          h += `</tr>`;
-        } else {
-          f.tac.forEach((t) => {
-            const fe = FS.calc.tacticFee(t), ne = t.b - fe;
-            tB += t.b; tFe += fe;
-            h += `<tr><td>${esc(c.brand || '')}</td><td>${esc(c.label)}</td><td>${c.budget || ''}</td><td>${esc(f.n || '')}</td><td>${f.b || ''}</td><td>${esc(st)}</td><td>${cb}</td><td>${tc}</td><td>${ub}</td><td>${esc(t.n || '')}</td><td>${t.b || ''}</td><td>${fe.toFixed(2)}</td><td>${ne.toFixed(2)}</td><td>${esc(t.sd)}</td><td>${esc(t.ed)}</td>`;
-            channels.forEach((ch) => {
-              const v = (t.ch && t.ch[ch.id]) || 0;
-              tCh[ch.id] += v;
-              h += `<td>${v || ''}</td>`;
-            });
+          if (feeInfo.enabled) appendUnassigned(c, campIndex, f, flightIndex, null, null);
+          else {
+            tB += fb;
+            h += `<tr><td>${esc(c.brand || '')}</td><td>${esc(c.label)}</td><td>${c.budget || ''}</td><td>${esc(f.n || '')}</td><td>${f.b || ''}</td><td>${esc(st)}</td><td>${cb}</td><td>${tc}</td><td>${ub}</td><td></td><td>${fb}</td><td>0</td><td>${fb}</td><td>${esc(f.sd)}</td><td>${esc(f.ed)}</td>`;
+            channels.forEach(() => { h += `<td></td>`; });
             h += `</tr>`;
+          }
+        } else {
+          f.tac.forEach((t, tacticIndex) => {
+            const rows = feeInfo.enabled
+              ? allocatedRows(campIndex, flightIndex, tacticIndex).filter((row) => !row.unassigned) : [];
+            const amount = feeInfo.enabled ? rowAmount(rows) : (Number(t.b) || 0);
+            const fe = feeInfo.enabled ? rowFee(rows) : FS.calc.tacticFee(t);
+            const ne = ct.mode === 'excl' ? amount : amount - fe;
+            tB += amount; tFe += fe;
+            const status = `${st}${feeInfo.enabled ? (f.actualized ? ' · actual' : ' · planned') : ''}`;
+            if (!feeInfo.enabled || rows.length) {
+              h += `<tr><td>${esc(c.brand || '')}</td><td>${esc(c.label)}</td><td>${c.budget || ''}</td><td>${esc(f.n || '')}</td><td>${f.b || ''}</td><td>${esc(status)}</td><td>${cb}</td><td>${tc}</td><td>${ub}</td><td>${esc(t.n || '')}</td><td>${amount.toFixed(2)}</td><td>${fe.toFixed(2)}</td><td>${ne.toFixed(2)}</td><td>${esc(t.sd)}</td><td>${esc(t.ed)}</td>`;
+              channels.forEach((ch) => {
+                const v = feeInfo.enabled
+                  ? rows.filter((row) => row.channelId === ch.id).reduce((sum, row) => sum + row.amount, 0)
+                  : (t.ch && t.ch[ch.id]) || 0;
+                tCh[ch.id] += v;
+                h += `<td>${v ? v.toFixed(2) : ''}</td>`;
+              });
+              h += `</tr>`;
+            }
+            if (feeInfo.enabled) appendUnassigned(c, campIndex, f, flightIndex, t, tacticIndex);
           });
+          if (feeInfo.enabled) appendUnassigned(c, campIndex, f, flightIndex, null, null);
         }
       });
+      if (feeInfo.enabled) appendUnassigned(c, campIndex, null, null, null, null);
     });
+    if (feeInfo.enabled) { tB = feeInfo.baseTotal; tFe = feeInfo.total; }
     const crT = FS.calc.calcCreatie();
     const tcT = FS.calc.calcTooling();
     const urT = FS.calc.calcUren();
-    h += `<tr><td class="tot" colspan="6">TOTAAL</td><td class="tot">${tCb + crT}</td><td class="tot">${tTc + tcT}</td><td class="tot">${tUb + urT}</td><td class="tot"></td><td class="tot">${tB}</td><td class="tot">${tFe.toFixed(2)}</td><td class="tot">${(tB - tFe).toFixed(2)}</td><td class="tot"></td><td class="tot"></td>`;
+    const totalNet = ct.mode === 'excl' ? tB : tB - tFe;
+    h += `<tr><td class="tot" colspan="6">TOTAAL</td><td class="tot">${tCb + crT}</td><td class="tot">${tTc + tcT}</td><td class="tot">${tUb + urT}</td><td class="tot"></td><td class="tot">${tB}</td><td class="tot">${tFe.toFixed(2)}</td><td class="tot">${totalNet.toFixed(2)}</td><td class="tot"></td><td class="tot"></td>`;
     channels.forEach((ch) => { h += `<td class="tot">${tCh[ch.id] || ''}</td>`; });
     h += `</tr><tr><td colspan="5">Jaarbudget</td><td colspan="${10 + channels.length}">${s.jaarTotal}</td></tr></table>`;
     if (s.budgetJournal.mods.length) {

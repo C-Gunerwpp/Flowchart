@@ -25,6 +25,8 @@
       D: s.campaigns,
       n: s.nextId,
       fees: s.fees,
+      ft: s.feeTiers,
+      comm: s.settings && s.settings.comm,
       yr: s.year,
       client: s.client,
     });
@@ -41,6 +43,8 @@
     s.campaigns = d.D;
     s.nextId = d.n;
     s.fees = d.fees;
+    s.feeTiers = FS.state.mergeFeeTiers(d.ft);
+    if (d.comm) s.settings = FS.state.mergeSettings(Object.assign({}, s.settings || {}, { comm: d.comm }));
     s.year = d.yr;
     s.client = d.client || '';
     FS.calc.calcJaar();

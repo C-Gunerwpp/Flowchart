@@ -89,6 +89,15 @@
     FS.render.render();
   }
 
+  function setModalLocked(body, locked) {
+    body.classList.toggle('mb-locked', !!locked);
+    if (!locked) return;
+    body.querySelectorAll('input,select,textarea,button').forEach((control) => {
+      if (control.classList.contains('allow-locked') || control.closest('.allow-locked')) return;
+      control.disabled = true;
+    });
+  }
+
   /* ------- Budget check (campagne overschrijdt of laat over) -------
    * Wordt aangeroepen na elke wijziging op flight/tactic niveau die het
    * totaal kan beïnvloeden: budget aanpassen, flight verwijderen, flight
@@ -255,7 +264,7 @@
     document.getElementById('modalNav').innerHTML = nav;
     const cBody = document.getElementById('modalBody');
     cBody.innerHTML = h;
-    cBody.classList.toggle('mb-locked', !!camp.locked);
+    setModalLocked(cBody, !!camp.locked);
     openModal();
     FS.render.render();
   }
@@ -280,7 +289,7 @@
     } else if (f.actualized) {
       h += `<div class="act-banner act-ok"><span class="act-ic">✅</span>`
         + `<span class="act-msg">Flight is geactualiseerd op ${esc(f.actualizedAt || '')}.</span>`
-        + `<button class="act-btn" id="mFreopen">↩ Heropenen</button></div>`;
+        + `<button class="act-btn allow-locked" id="mFreopen">↩ Heropenen</button></div>`;
     } else if (FS.calc.flightNeedsActuals(f)) {
       h += `<div class="act-banner act-warn"><span class="act-ic">⚠️</span>`
         + `<span class="act-msg">Deze flight is afgelopen. Vul de werkelijke bestedingen per tactic in en markeer als actual.</span>`
@@ -411,7 +420,7 @@
     document.getElementById('modalNav').innerHTML = nav;
     const fBody = document.getElementById('modalBody');
     fBody.innerHTML = h;
-    fBody.classList.toggle('mb-locked', !!camp.locked || !!f.actualized);
+    setModalLocked(fBody, !!camp.locked || !!f.actualized);
     openModal();
     FS.render.render();
   }
@@ -421,8 +430,6 @@
     const camp = FS.state.campaigns[ci];
     const f = camp.segs[fi];
     const t = f.tac[ti];
-    // Budget is afgeleid van de kanalen — houd t.b altijd in sync.
-    t.b = FS.calc.channelSum(t.ch || {});
     FS.state.selectedCamp = camp.id;
     FS.state.selectedFlight = fi;
     FS.state.selectedTactic = ti;
@@ -459,16 +466,17 @@
       + `<input id="mTed" type="date" value="${a(t.ed)}" min="${a(f.sd)}" max="${a(f.ed)}" style="width:130px">`
       + `<input id="mTew" type="number" value="${dateToWeek(t.ed)}" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div></div>`;
 
-    const act = t.actual || 0;
+    const hasAct = Object.prototype.hasOwnProperty.call(t, 'actual');
+    const act = hasAct ? (Number(t.actual) || 0) : 0;
     const dAct = act - t.b;
     const dCol = dAct > 0 ? '#DC2626' : dAct < 0 ? '#059669' : '#6B7280';
     const dSign = dAct > 0 ? '+' : '';
-    const dHtml = act
+    const dHtml = hasAct
       ? `<span class="cur-wrap"><span class="cur-sym">€</span><input value="${dSign}${esc(fC(dAct).replace(/^€\s?/, ''))}" disabled style="color:${dCol};font-weight:700"></span>`
       : `<span class="cur-wrap"><span class="cur-sym" style="color:#CBD5E1">€</span><input value="–" disabled style="color:#94A3B8"></span>`;
     h += `<div class="mf-row">`
-      + `<div class="mf-field"><label>💵 Werkelijk besteed</label>`
-      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mTact" type="number" value="${act}" step="100" placeholder="0" style="border-color:#FED7AA;background:#FFF7ED"></span></div>`
+      + `<div class="mf-field"><label>💵 Werkelijk besteed${t.actualAuto ? ' <span class="act-auto-tag">automatisch verdeeld</span>' : ''}</label>`
+      + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mTact" type="number" value="${hasAct ? a(act) : ''}" min="0" step="100" placeholder="Nog niet ingevuld" style="border-color:#FED7AA;background:#FFF7ED"></span></div>`
       + `<div class="mf-field"><label>Verschil</label>${dHtml}</div></div>`;
 
     h += `<div class="mf-row"><div class="mf-field"><label>Kleur</label>${palHTML(t.col || '')}</div></div>`;
@@ -480,7 +488,9 @@
     // kanaal is meteen het tacticbudget — geen aparte budgetinvoer nodig.
     const selCh = Object.keys(t.ch || {})[0] || '';
     const chBudget = selCh ? (t.ch[selCh] || 0) : 0;
-    const chF = selCh ? FS.calc.channelFee(selCh, chBudget) : 0;
+    const feeAllocation = selCh ? FS.calc.allocationForTactic(camp, f, t) : { amount: 0, fee: 0 };
+    const chF = feeAllocation.fee;
+    const feeNet = FS.calc.feeMode() === 'excl' ? feeAllocation.amount : feeAllocation.amount - chF;
     h += `<div class="m-section"><h4>📡 Kanaal & KPI's</h4></div><div class="mf tac-ch">`;
     h += `<div class="mf-row">`
       + `<div class="mf-field" style="flex:2"><label>Kanaal<span class="lbl-help" title="Kies één kanaal per tactic. Het budget hiernaast is meteen het tacticbudget.">?</span></label>`
@@ -499,7 +509,7 @@
         + protos.map((p) => `<option value="${a(p)}"${curBp === p ? ' selected' : ''}>${esc(p)}</option>`).join('')
         + `</select></div></div>`;
       if (chF > 0.005) {
-        h += `<div class="tac-fee-note">💰 Fee: ${esc(fC2(chF))} · Netto media: ${esc(fC2(chBudget - chF))}</div>`;
+        h += `<div class="tac-fee-note">💰 ${FS.state.feeTiers && FS.state.feeTiers.enabled ? 'Staffelfee' : 'Fee'}: ${esc(fC2(chF))} · Netto media: ${esc(fC2(feeNet))}</div>`;
       }
       const mets = FS.constants.CHANNEL_METRICS[selCh] || ['Impressies'];
       const tm = (t.met && t.met[selCh]) || {};
@@ -516,7 +526,7 @@
     document.getElementById('modalNav').innerHTML = nav;
     const tBody = document.getElementById('modalBody');
     tBody.innerHTML = h;
-    tBody.classList.toggle('mb-locked', !!camp.locked || !!f.actualized);
+    setModalLocked(tBody, !!camp.locked || !!f.actualized);
     document.getElementById('modal').classList.add('wide');
     openModal();
     FS.render.render();
@@ -526,6 +536,38 @@
   // Actieve tab in de instellingen. 'personalisatie' = functies aan/uit +
   // funnelmodel + communicatie; 'budget' = budget & kosten (los gekoppeld).
   let activeSettingsTab = 'personalisatie';
+  const openFeeTierChannels = new Set();
+
+  function toggleFeeTierChannels(id) {
+    if (openFeeTierChannels.has(id)) openFeeTierChannels.delete(id);
+    else openFeeTierChannels.add(id);
+  }
+
+  function forgetFeeTierChannels(id) {
+    openFeeTierChannels.delete(id);
+  }
+
+  function pctInputValue(rate, blank) {
+    if (rate == null || rate === '' || !Number.isFinite(Number(rate))) return '';
+    if (blank && rate == null) return '';
+    return String(parseFloat((Number(rate) * 100).toPrecision(10)));
+  }
+
+  function feeTierValidation(tier, tiers) {
+    const errors = [];
+    const upTo = tier.upTo == null || tier.upTo === '' ? NaN : Number(tier.upTo);
+    const rate = tier.rate == null || tier.rate === '' ? NaN : Number(tier.rate);
+    if (!Number.isFinite(upTo) || upTo <= 0) errors.push('Vul een grensbedrag groter dan €0 in.');
+    if (Number.isFinite(upTo) && tiers.filter((row) => Number(row.upTo) === upTo).length > 1) errors.push('Elke grens moet uniek zijn.');
+    if (!Number.isFinite(rate) || rate < 0 || rate > 1) errors.push('Algemene fee moet tussen 0% en 100% liggen.');
+    const invalidChannels = Object.keys(tier.channelRates || {}).filter((ch) => {
+      const raw = tier.channelRates[ch];
+      const value = raw == null || raw === '' ? NaN : Number(raw);
+      return !Number.isFinite(value) || value < 0 || value > 1;
+    });
+    if (invalidChannels.length) errors.push(`${invalidChannels.length} ongeldige kanaalafwijking(en).`);
+    return errors;
+  }
   function setSettingsTab(tab) {
     if (tab === 'budget' || tab === 'personalisatie') activeSettingsTab = tab;
   }
@@ -586,16 +628,91 @@
     h += `</div><div class="ss-foot"><button class="ss-add sjm-add" data-j="uj">+ Overig uren</button>`
       + `<span class="ss-tot">Totaal <strong>${esc(fC(totUren + FS.calc.calcUren()))}</strong></span></div></section>`;
 
-    // -- Fees --
-    h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-fe">⚙️</span><h4>Handling Fee per kanaal</h4>`
-      + `<span class="ss-hint">Fee = budget × (% / (100 + %))</span></div><div class="ss-body"><div class="fee-grid">`;
-    FS.constants.CHANNELS.forEach((ch) => {
-      const rawPct = s.fees[ch.id] ? s.fees[ch.id] * 100 : 0;
-      const dp = rawPct ? String(parseFloat(rawPct.toPrecision(10))) : '';
-      h += `<div class="fee-item"><label><span class="fi-ic">${ch.icon}</span>${esc(ch.name)}</label>`
-        + `<div class="fi-input"><input type="number" class="sf-in" data-ch="${a(ch.id)}" value="${a(dp)}" placeholder="0" min="0" max="50" step="any"><span class="fi-suf">%</span></div></div>`;
-    });
-    h += `</div></div></section>`;
+    // -- Fees + optionele staffels --
+    const feeCfg = s.feeTiers || s.defaultFeeTiers();
+    const tiers = Array.isArray(feeCfg.tiers) ? feeCfg.tiers : [];
+    const bd = FS.calc.budgetBreakdown();
+    const formula = bd.mode === 'excl' ? 'fee = media × %' : 'fee = CTC × % / (100 + %)';
+    const feeStatus = bd.feeStatus === 'actual' ? 'actual' : bd.feeStatus === 'forecast' ? 'prognose (actual + planned)' : 'planned prognose';
+    h += `<section class="ss-card fee-settings"><div class="ss-head"><span class="ss-ic ss-ic-fe">⚙️</span><h4>Handling Fee per kanaal</h4>`
+      + `<span class="ss-hint">${esc(formula)}</span></div><div class="ss-body">`
+      + `<div class="ss-toggle fee-tier-toggle"><label for="feeTiersEnable">Staffels gebruiken`
+      + `<span class="ss-hint-sm">Selecteer één tarief op basis van het volledige campagne- of flightbudget.</span></label>`
+      + `<div class="tg-sw${feeCfg.enabled ? ' on' : ''}" id="feeTiersEnable" role="switch" aria-label="Staffels gebruiken" aria-checked="${!!feeCfg.enabled}" tabindex="0"></div></div>`;
+
+    if (!feeCfg.enabled) {
+      h += `<div class="fee-flat-note">Vlakke fee per kanaal</div><div class="fee-grid">`;
+      FS.constants.CHANNELS.forEach((ch) => {
+        const rawPct = s.fees[ch.id] ? s.fees[ch.id] * 100 : 0;
+        const dp = rawPct ? String(parseFloat(rawPct.toPrecision(10))) : '';
+        h += `<div class="fee-item"><label><span class="fi-ic">${ch.icon}</span>${esc(ch.name)}</label>`
+          + `<div class="fi-input"><input type="number" class="sf-in" data-ch="${a(ch.id)}" value="${a(dp)}" placeholder="0" min="0" max="100" step="any"><span class="fi-suf">%</span></div></div>`;
+      });
+      h += `</div>`;
+    } else {
+      const validCount = tiers.filter((tier) => feeTierValidation(tier, tiers).length === 0).length;
+      h += `<div class="fee-scope"><div><strong>Berekenen per</strong><span>De staffel wordt voor ieder gekozen niveau apart bepaald.</span></div>`
+        + `<div class="fee-scope-options" role="radiogroup" aria-label="Staffelniveau">`
+        + `<button type="button" class="fee-scope-btn${feeCfg.scope !== 'flight' ? ' on' : ''}" data-ft-scope="campaign" role="radio" aria-checked="${feeCfg.scope !== 'flight'}">Campagne</button>`
+        + `<button type="button" class="fee-scope-btn${feeCfg.scope === 'flight' ? ' on' : ''}" data-ft-scope="flight" role="radio" aria-checked="${feeCfg.scope === 'flight'}">Flight</button></div></div>`
+        + `<div class="fee-tier-help">Het gevonden percentage geldt over het <strong>hele bedrag</strong>; staffels worden niet progressief opgeteld.</div>`
+        + `<div class="fee-tier-list">`;
+      tiers.forEach((tier, index) => {
+        const errors = feeTierValidation(tier, tiers);
+        const opened = openFeeTierChannels.has(tier.id);
+        const overrides = tier.channelRates || {};
+        const overrideCount = Object.keys(overrides).length;
+        h += `<div class="fee-tier-row${errors.length ? ' invalid' : ''}" data-tier-id="${a(tier.id)}">`
+          + `<div class="fee-tier-main"><span class="fee-tier-index">${index + 1}</span>`
+          + `<label class="fee-tier-field"><span>Budget t/m</span><span class="cur-wrap"><span class="cur-sym">€</span>`
+          + `<input type="number" class="ft-up-to" data-id="${a(tier.id)}" value="${a(tier.upTo != null && Number.isFinite(Number(tier.upTo)) ? tier.upTo : '')}" min="0" step="1000" placeholder="50.000"></span></label>`
+          + `<label class="fee-tier-field fee-tier-pct"><span>Algemene fee</span><span class="fi-input">`
+          + `<input type="number" class="ft-rate" data-id="${a(tier.id)}" value="${a(pctInputValue(tier.rate))}" min="0" max="100" step="any" placeholder="0"><span class="fi-suf">%</span></span></label>`
+          + `<button type="button" class="ft-ch-toggle${opened ? ' on' : ''}" data-id="${a(tier.id)}" aria-expanded="${opened}">Kanalen${overrideCount ? ` <b>${overrideCount}</b>` : ''}<span>${opened ? '▴' : '▾'}</span></button>`
+          + `<button type="button" class="ft-del" data-id="${a(tier.id)}" title="Staffel verwijderen" aria-label="Staffel ${index + 1} verwijderen">✕</button></div>`;
+        if (errors.length) h += `<div class="fee-tier-error">⚠ ${esc(errors.join(' '))}</div>`;
+        if (opened) {
+          h += `<div class="fee-tier-channels"><div class="fee-tier-channels-head"><strong>Kanaalafwijkingen</strong>`
+            + `<span>Leeg = algemene fee · 0 = geen fee</span></div><div class="fee-tier-channel-grid">`;
+          FS.constants.CHANNELS.forEach((ch) => {
+            const hasOverride = Object.prototype.hasOwnProperty.call(overrides, ch.id);
+            h += `<label class="fee-tier-channel"><span>${ch.icon} ${esc(ch.name)}</span><span class="fi-input">`
+              + `<input type="number" class="ft-ch-rate" data-id="${a(tier.id)}" data-ch="${a(ch.id)}" value="${hasOverride ? a(pctInputValue(overrides[ch.id])) : ''}" min="0" max="100" step="any" placeholder="${a(pctInputValue(tier.rate) || '0')}"><span class="fi-suf">%</span></span></label>`;
+          });
+          h += `</div></div>`;
+        }
+        h += `</div>`;
+      });
+      if (!tiers.length) h += `<div class="ss-empty fee-tier-empty">Nog geen staffels — voeg de eerste staffel toe.</div>`;
+      h += `</div><div class="fee-tier-actions"><button type="button" class="ss-add ft-add">+ Staffel</button>`
+        + `<span>${validCount}/${tiers.length} geldig</span></div>`;
+      if (!validCount) h += `<div class="fee-tier-global-error">⚠ Zonder geldige staffel wordt tijdelijk €0 handling fee berekend.</div>`;
+
+      const cap = feeCfg.cap || { enabled: false, above: 0, kind: 'amount', value: 0 };
+      const capValue = cap.kind === 'rate' ? pctInputValue(cap.value) : (cap.value != null && Number.isFinite(Number(cap.value)) ? cap.value : '');
+      const capInvalid = cap.enabled && (!(cap.above != null && Number(cap.above) > 0) || cap.value == null || !Number.isFinite(Number(cap.value)) || Number(cap.value) < 0
+        || (cap.kind === 'rate' && Number(cap.value) > 1));
+      h += `<div class="fee-cap${capInvalid ? ' invalid' : ''}"><div class="ss-toggle"><label for="feeCapEnable">Maximum fee`
+        + `<span class="ss-hint-sm">Begrens boven een drempel de totale fee per ${feeCfg.scope === 'flight' ? 'flight' : 'campagne'}.</span></label>`
+        + `<div class="tg-sw${cap.enabled ? ' on' : ''}" id="feeCapEnable" role="switch" aria-label="Maximum fee gebruiken" aria-checked="${!!cap.enabled}" tabindex="0"></div></div>`;
+      if (cap.enabled) {
+        h += `<div class="fee-cap-fields"><label><span>Boven budget</span><span class="cur-wrap"><span class="cur-sym">€</span>`
+          + `<input type="number" id="feeCapAbove" value="${a(cap.above != null && Number.isFinite(Number(cap.above)) ? cap.above : '')}" min="0" step="1000"></span></label>`
+          + `<label><span>Maximum als</span><select id="feeCapKind"><option value="amount"${cap.kind !== 'rate' ? ' selected' : ''}>Vast bedrag</option><option value="rate"${cap.kind === 'rate' ? ' selected' : ''}>Percentage</option></select></label>`
+          + `<label><span>Maximum</span><span class="${cap.kind === 'rate' ? 'fi-input' : 'cur-wrap'}">`
+          + (cap.kind === 'rate' ? '' : `<span class="cur-sym">€</span>`)
+          + `<input type="number" id="feeCapValue" value="${a(capValue)}" min="0"${cap.kind === 'rate' ? ' max="100" step="any"' : ' step="100"'}>`
+          + (cap.kind === 'rate' ? `<span class="fi-suf">%</span>` : '') + `</span></label></div>`;
+        if (capInvalid) h += `<div class="fee-tier-error">⚠ Vul een geldige drempel en een maximum tussen ${cap.kind === 'rate' ? '0% en 100%' : '€0 en hoger'} in.</div>`;
+      }
+      h += `</div>`;
+    }
+    if (bd.feeErrors && bd.feeErrors.length) {
+      h += `<div class="fee-tier-global-error">⚠ Fee niet berekend: ${esc(bd.feeErrors[0])}</div>`;
+    }
+    h += `<div class="fee-live-preview"><span>Huidige ${esc(feeStatus)}</span><strong>${esc(fC(bd.fee))}</strong>`
+      + (feeCfg.enabled ? `<em>over ${esc(fC(bd.feeBase))} media · per ${feeCfg.scope === 'flight' ? 'flight' : 'campagne'}</em>` : '')
+      + `</div></div></section>`;
 
     return h;
   }
@@ -685,6 +802,8 @@
     const bd = FS.calc.budgetBreakdown();
     const btwVal = Number.isFinite(comm.btwPct) ? comm.btwPct : 21;
     const isExcl = bd.mode === 'excl';
+    const feeStatus = bd.feeStatus === 'actual' ? 'actual'
+      : bd.feeStatus === 'forecast' ? 'prognose: actual + planned' : 'planned prognose';
     return `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-cm">🧾</span><h4>Communicatie naar klant</h4>`
       + `<span class="ss-hint">Bepaalt of de handling fee in of bovenop het budget valt</span></div><div class="ss-body">`
       + `<label class="ss-check"><input type="checkbox" class="ss-cb" id="cmInclCtc"${comm.inclCtc ? ' checked' : ''}>`
@@ -696,7 +815,7 @@
       + `<span class="ss-check-pct"><input type="number" id="cmBtwPct" value="${a(btwVal)}" min="0" max="100" step="any"><span class="fi-suf">%</span></span></div>`
       + `<div class="ss-comm-prev">`
       + `<div class="ss-comm-line"><span>Netto media</span><strong>${esc(fC(bd.media))}</strong></div>`
-      + `<div class="ss-comm-line"><span>${isExcl ? '➕' : '➖'} Handling fee</span><strong>${esc(fC(bd.fee))}</strong></div>`
+      + `<div class="ss-comm-line"><span>${isExcl ? '➕' : '➖'} Handling fee${bd.feeTiersEnabled ? ` <em>(${esc(feeStatus)})</em>` : ''}</span><strong>${esc(fC(bd.fee))}</strong></div>`
       + `<div class="ss-comm-line ss-comm-tot"><span>Totaal CTC${bd.btwIncluded ? ` (incl. ${esc(bd.btwPct)}% BTW)` : ''}</span><strong>${esc(fC(bd.btwIncluded ? bd.ctcInclBtw : bd.ctc))}</strong></div>`
       + `</div>`
       + `</div></section>`;
@@ -725,25 +844,39 @@
   }
 
   /* ------- Actualisatie / lock ------- */
-  function actualizeFlight(ci, fi) {
+  function actualizeFlight(ci, fi, attemptedTotal) {
     const camp = FS.state.campaigns[ci];
     const f = camp.segs[fi];
     if (!f) return;
     const planned = FS.calc.flightBudget(f);
-    const preset = f.actualBudget != null ? f.actualBudget : planned;
+    const preset = attemptedTotal != null ? attemptedTotal : f.actualBudget != null ? f.actualBudget : planned;
+    const previewDistribution = FS.calc.planFlightActualDistribution(f, preset);
+    const explicitCount = previewDistribution.rows.filter((row) => row.explicit).length;
+    const autoCount = previewDistribution.rows.filter((row) => row.automatic).length;
     showConfirm(
       `<div style="text-align:left">`
       + `<strong>📋 Flight actual maken</strong>`
-      + `<div style="font-size:11px;color:#6B7280;margin-top:4px;line-height:1.5">Vul het werkelijk bestede budget in. Het planned budget `
+      + `<div style="font-size:11px;color:var(--text-2);margin-top:4px;line-height:1.5">Vul het werkelijk bestede budget in. Het planned budget `
       + `(<strong>${esc(fC(planned))}</strong>) blijft bewaard zodat je altijd kunt terugkijken. `
       + `De flight wordt automatisch op <strong>Afgerond</strong> gezet.</div>`
-      + `<div style="margin-top:12px"><label style="font-size:10px;font-weight:700;color:#000050;display:block;margin-bottom:4px">💵 Werkelijk besteed budget</label>`
+      + `<div class="act-dist-note"><strong>${explicitCount}</strong> tactic-actual${explicitCount === 1 ? '' : 's'} handmatig ingevuld. `
+      + (autoCount
+        ? `Het restant wordt bij bevestigen naar rato over <strong>${autoCount}</strong> tactic${autoCount === 1 ? '' : 's'} verdeeld.`
+        : `Een eventueel restant blijft niet-toegewezen media.`)
+      + `</div>`
+      + `<div style="margin-top:12px"><label style="font-size:10px;font-weight:700;color:var(--heading);display:block;margin-bottom:4px">💵 Werkelijk besteed budget</label>`
       + `<span class="cur-wrap" style="width:100%;display:inline-block"><span class="cur-sym">€</span>`
       + `<input id="cfmActAmt" type="number" value="${preset}" step="100" style="width:100%"></span></div></div>`,
       (ok) => {
         if (!ok) return;
         const inp = document.getElementById('cfmActAmt');
-        const val = inp ? (parseFloat(inp.value) || 0) : planned;
+        const val = inp ? Math.max(0, parseFloat(inp.value) || 0) : planned;
+        const distribution = FS.calc.applyFlightActualDistribution(f, val);
+        if (!distribution.ok) {
+          if (FS.toast) FS.toast.show(distribution.error, 'error', 5500);
+          setTimeout(() => actualizeFlight(ci, fi, val), 0);
+          return;
+        }
         const now = new Date();
         f.actualized = true;
         f.actualBudget = val;
@@ -858,6 +991,6 @@
     checkCampBudget, clampFlightTactics, showCampModal, showFlightModal, showTacticModal,
     renderSettings, addFlight, addTactic, clampFunnelHierarchy,
     actualizeFlight, reopenFlight, unlockCampaign, notifyPendingActuals,
-    setSettingsTab,
+    setSettingsTab, toggleFeeTierChannels, forgetFeeTierChannels,
   };
 })(window.FS = window.FS || {});

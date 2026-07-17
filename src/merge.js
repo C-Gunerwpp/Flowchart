@@ -81,6 +81,8 @@
       creatie,
       tooling,
       fees: settings.fees || {},
+      feeTiers: FS.state.mergeFeeTiers(settings.feeTiers),
+      comm: FS.state.mergeSettings(settings.user).comm,
       year: settings.year || FS.constants.DEFAULT_YEAR,
     };
   }
@@ -129,6 +131,30 @@
     return note ? `[${brand}] ${note}` : `[${brand}]`;
   }
 
+  /** Vergelijk staffelconfiguraties inhoudelijk; technische rij-id's mogen per
+   *  los plan verschillen zonder een vals mergeconflict te veroorzaken. */
+  function feeTierSignature(config) {
+    const normalized = FS.state.mergeFeeTiers(config);
+    return JSON.stringify({
+      enabled: normalized.enabled,
+      scope: normalized.scope,
+      tiers: normalized.tiers.map((tier) => ({
+        upTo: tier.upTo,
+        rate: tier.rate,
+        channelRates: Object.keys(tier.channelRates || {}).sort().reduce((out, key) => {
+          out[key] = tier.channelRates[key];
+          return out;
+        }, {}),
+      })),
+      cap: normalized.cap,
+    });
+  }
+
+  function commSignature(comm) {
+    const normalized = FS.state.mergeSettings({ comm }).comm;
+    return JSON.stringify(normalized);
+  }
+
   /** Voeg alle wachtrij-plannen samen tot één geconsolideerd plan in FS.state. */
   function consolidate() {
     const s = FS.state;
@@ -138,6 +164,10 @@
     const toolingMods = [];
     const fees = {};
     let feeConflicts = 0;
+    let feeTiers = null;
+    let feeTierConflicts = 0;
+    let comm = null;
+    let commConflicts = 0;
     let nextId = 100;
     let firstYear = null;
 
@@ -156,6 +186,10 @@
         if (fees[k] === undefined) fees[k] = plan.fees[k];
         else if (fees[k] !== plan.fees[k]) feeConflicts++;
       }
+      if (feeTiers === null) feeTiers = plan.feeTiers;
+      else if (feeTierSignature(feeTiers) !== feeTierSignature(plan.feeTiers)) feeTierConflicts++;
+      if (comm === null) comm = plan.comm;
+      else if (commSignature(comm) !== commSignature(plan.comm)) commConflicts++;
 
       plan.campaigns.forEach((c) => {
         const copy = JSON.parse(JSON.stringify(c));
@@ -170,13 +204,15 @@
     s.creatieJournal = { mods: creatieMods };
     s.toolingJournal = { mods: toolingMods };
     s.fees = fees;
+    s.feeTiers = FS.state.mergeFeeTiers(feeTiers);
+    s.settings = FS.state.mergeSettings({ comm });
     s.campaigns = newCampaigns;
     s.nextId = nextId;
     s.year = firstYear || FS.constants.DEFAULT_YEAR;
     s.client = (groupName || '').trim() || 'Geconsolideerd overzicht';
     FS.utils.normalize(s.campaigns);
     FS.calc.calcJaar();
-    return { campaigns: newCampaigns.length, brands: pending.length, feeConflicts };
+    return { campaigns: newCampaigns.length, brands: pending.length, feeConflicts, feeTierConflicts, commConflicts };
   }
 
   function confirmMerge() {
@@ -192,6 +228,8 @@
     if (FS.toast) {
       let msg = `${result.brands} merken samengevoegd — ${result.campaigns} campagnes in één overzicht.`;
       if (result.feeConflicts) msg += ` (${result.feeConflicts} afwijkende fee(s): eerste merk leidend.)`;
+      if (result.feeTierConflicts) msg += ` (${result.feeTierConflicts} afwijkende staffelconfig(s): eerste merk leidend.)`;
+      if (result.commConflicts) msg += ` (${result.commConflicts} afwijkende CTC-instelling(en): eerste merk leidend.)`;
       FS.toast.show(msg, 'success', 5500);
     }
   }

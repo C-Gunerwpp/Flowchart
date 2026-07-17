@@ -68,6 +68,16 @@ npm run format
 4. Pas kanalen, budgetten en metrics aan in de modalinterfaces.
 5. Exporteer naar JSON, CSV, XLS of print direct naar PDF.
 
+### Handling-feestaffels
+
+Open **Instellingen → Budget & kosten → Handling Fee per kanaal** en zet **Staffels gebruiken** aan. Kies vervolgens of iedere campagne of iedere flight afzonderlijk een staffel bepaalt.
+
+- De staffel die bij het volledige media-budget past, levert één percentage voor het hele bedrag; de berekening is dus niet progressief.
+- Het algemene percentage geldt voor alle media in die staffel. Een ingevuld kanaalpercentage vervangt dit algemene percentage voor dat kanaal; `0%` schakelt de fee voor dat kanaal uit.
+- Een optionele maximumregel begrenst boven een budgetdrempel de totale fee per campagne of flight op een percentage of vast bedrag.
+- Planned media levert eerst een prognose. Zodra flights worden geactualiseerd, vervangen werkelijke tactic-/kanaalbedragen de planning; open flights blijven planned in de prognose.
+- Alleen media telt mee in de staffel. Creatie, tooling en uren blijven buiten de feegrondslag.
+
 ## Branch en workflow
 
 - Deze wijzigingen zijn aangebracht op branch `Verbeterd`.

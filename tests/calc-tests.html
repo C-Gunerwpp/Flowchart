@@ -77,12 +77,35 @@
 
   // Helper: zet een test-state op
   function setup(campaigns, fees) {
+    FS.state.reset();
     FS.state.campaigns = campaigns || [];
     FS.state.fees = fees || {};
     FS.state.jaarTotal = 1000000;
     FS.state.budgetJournal = { base: 1000000, mods: [] };
     FS.state.creatieJournal = { mods: [] };
     FS.state.toolingJournal = { mods: [] };
+    FS.state.urenJournal = { mods: [] };
+    FS.state.settings = FS.state.defaultSettings();
+    FS.state.feeTiers = FS.state.defaultFeeTiers();
+  }
+
+  function useExclCtc() {
+    FS.state.settings.comm.inclCtc = false;
+    FS.state.settings.comm.exclCtc = true;
+  }
+
+  function useTiers(scope, tiers, cap) {
+    FS.state.feeTiers = {
+      enabled: true,
+      scope: scope || 'campaign',
+      tiers: tiers.map((tier, index) => ({
+        id: 'tier_' + index,
+        upTo: tier.upTo,
+        rate: tier.rate,
+        channelRates: tier.channelRates || {},
+      })),
+      cap: cap || { enabled: false, above: 0, kind: 'amount', value: 0 },
+    };
   }
 
   /* ============ flightBudget ============ */
@@ -101,11 +124,11 @@
   group('campaignTotal');
   test('losse campagne sommeert flights', () => {
     const c = { budget: 0, segs: [{ tac: [{ b: 1000 }] }, { tac: [{ b: 2000 }] }] };
-    eq(FS.calc.campaignTotal(c), 3000);
+    eq(FS.calc.campaignBudget(c), 3000);
   });
   test('vast campagne-budget overrult flight-som', () => {
     const c = { budget: 10000, segs: [{ tac: [{ b: 1000 }] }] };
-    eq(FS.calc.campaignTotal(c), 10000);
+    eq(FS.calc.campaignBudget(c), 10000);
   });
 
   /* ============ grandTotal ============ */
@@ -142,6 +165,227 @@
   test('berekent fee per kanaal', () => {
     setup([{ budget: 0, segs: [{ tac: [{ b: 1100, ch: { FB: 1100 } }] }] }], { FB: 0.1 });
     close(FS.calc.totalFee(), 100, 0.5);
+  });
+
+  /* ============ handling-feestaffels ============ */
+  group('handling-feestaffels');
+  test('staffels uit behoudt vlakke kanaalfee', () => {
+    setup([{ budget: 0, segs: [{ b: 1100, tac: [{ b: 1100, ch: { tv: 1100 } }] }] }], { tv: 0.1 });
+    close(FS.calc.totalFee(), 100, 0.001);
+    eq(FS.calc.feeBreakdown().enabled, false);
+  });
+  test('grens is inclusief en volgende staffel geldt over het hele bedrag', () => {
+    setup([{ budget: 50000, segs: [{ b: 50000, tac: [{ b: 50000, ch: { tv: 50000 } }] }] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 50000, rate: 0.1 }, { upTo: 100000, rate: 0.08 }]);
+    close(FS.calc.totalFee(), 5000, 0.001);
+    FS.state.campaigns[0].budget = 50001;
+    close(FS.calc.totalFee(), 4000.08, 0.001);
+  });
+  test('dubbele en ongeldige grenzen worden veilig genegeerd', () => {
+    setup([{ id: 1, budget: 50000, segs: [{ b: 50000, tac: [{ b: 50000, ch: { tv: 50000 } }] }] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 50000, rate: 0.1 }, { upTo: 50000, rate: 0.2 }, { upTo: 100000, rate: 0.08 }]);
+    close(FS.calc.totalFee(), 4000, 0.001);
+  });
+  test('lege rate blijft na normalisatie ongeldig en wordt geen 0%-staffel', () => {
+    setup([{ id: 1, budget: 50000, segs: [{ b: 50000, tac: [{ b: 50000, ch: { tv: 50000 } }] }] }]);
+    useExclCtc();
+    FS.state.feeTiers = FS.state.mergeFeeTiers({
+      enabled: true, scope: 'campaign',
+      tiers: [{ id: 'invalid', upTo: 50000, rate: null, channelRates: {} }],
+      cap: { enabled: false, above: 0, kind: 'amount', value: 0 },
+    });
+    eq(FS.state.feeTiers.tiers[0].rate, null);
+    close(FS.calc.totalFee(), 0, 0.001);
+    eq(FS.calc.feeBreakdown().scopes[0].tier, null);
+  });
+  test('ongeldige kanaalafwijking maakt de hele staffel ongeldig', () => {
+    setup([{ id: 1, budget: 50000, segs: [{ b: 50000, tac: [{ b: 50000, ch: { tv: 50000 } }] }] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 50000, rate: 0.1, channelRates: { tv: 1.5 } }]);
+    close(FS.calc.totalFee(), 0, 0.001);
+    eq(FS.calc.feeBreakdown().scopes[0].tier, null);
+  });
+  test('hoogste staffel loopt door boven de laatste grens', () => {
+    setup([{ id: 1, budget: 120000, segs: [{ b: 120000, tac: [{ b: 120000, ch: { tv: 120000 } }] }] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 50000, rate: 0.1 }, { upTo: 100000, rate: 0.08 }]);
+    close(FS.calc.totalFee(), 9600, 0.001);
+  });
+  test('campagneniveau en flightniveau kiezen zelfstandig een staffel', () => {
+    setup([{ id: 1, budget: 0, segs: [
+      { b: 40000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+      { b: 40000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+    ] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 50000, rate: 0.1 }, { upTo: 100000, rate: 0.08 }]);
+    close(FS.calc.totalFee(), 6400, 0.001);
+    FS.state.feeTiers.scope = 'flight';
+    close(FS.calc.totalFee(), 8000, 0.001);
+  });
+  test('kanaalafwijking vervangt algemeen percentage en 0% blijft expliciet', () => {
+    setup([{ id: 1, budget: 100000, segs: [{ b: 100000, tac: [
+      { b: 60000, ch: { tv: 60000 } }, { b: 40000, ch: { social: 40000 } },
+    ] }] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 100000, rate: 0.1, channelRates: { tv: 0.05 } }]);
+    close(FS.calc.totalFee(), 7000, 0.001);
+    FS.state.feeTiers.tiers[0].channelRates.tv = 0;
+    close(FS.calc.totalFee(), 4000, 0.001);
+    const restored = FS.state.mergeFeeTiers(FS.state.feeTiers);
+    eq(Object.prototype.hasOwnProperty.call(restored.tiers[0].channelRates, 'tv'), true);
+    eq(restored.tiers[0].channelRates.tv, 0);
+  });
+  test('niet-toegewezen media gebruikt algemeen percentage', () => {
+    setup([{ id: 1, budget: 0, segs: [{ b: 100000, tac: [{ b: 60000, ch: { tv: 60000 } }] }] }]);
+    useExclCtc();
+    useTiers('flight', [{ upTo: 100000, rate: 0.1, channelRates: { tv: 0.05 } }]);
+    const info = FS.calc.feeBreakdown();
+    close(info.baseTotal, 100000, 0.001);
+    close(info.total, 7000, 0.001);
+    close(info.components.filter((row) => row.unassigned).reduce((sum, row) => sum + row.amount, 0), 40000, 0.001);
+  });
+  test('kanaalbedragen boven scopebudget worden evenredig teruggeschaald', () => {
+    setup([{ id: 1, budget: 0, segs: [{ b: 100000, tac: [{ b: 120000, ch: { tv: 120000 } }] }] }]);
+    useExclCtc();
+    useTiers('flight', [{ upTo: 100000, rate: 0.1, channelRates: { tv: 0.05 } }]);
+    const info = FS.calc.feeBreakdown();
+    close(info.baseTotal, 100000, 0.001);
+    close(info.total, 5000, 0.001);
+  });
+  test('tactic-allocatie gebruikt dezelfde teruggeschaalde basis als de fee', () => {
+    const tactic = { b: 60000, ch: { tv: 60000 } };
+    const camp = { id: 1, budget: 100000, segs: [{ b: 100000, tac: [tactic, { b: 60000, ch: { social: 60000 } }] }] };
+    setup([camp]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 100000, rate: 0.1 }]);
+    const allocation = FS.calc.allocationForTactic(camp, camp.segs[0], tactic);
+    close(allocation.amount, 50000, 0.001);
+    close(allocation.fee, 5000, 0.001);
+  });
+  test('incl. CTC gebruikt rate gedeeld door één plus rate', () => {
+    setup([{ id: 1, budget: 110000, segs: [{ b: 110000, tac: [{ b: 110000, ch: { tv: 110000 } }] }] }]);
+    useTiers('campaign', [{ upTo: 110000, rate: 0.1 }]);
+    close(FS.calc.totalFee(), 10000, 0.001);
+  });
+  test('budgetBreakdown neemt staffelfee mode-correct mee in CTC en media', () => {
+    setup([{ id: 1, budget: 100000, segs: [{ b: 100000, tac: [{ b: 100000, ch: { tv: 100000 } }] }] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 100000, rate: 0.1 }]);
+    let bd = FS.calc.budgetBreakdown();
+    close(bd.media, 100000, 0.001);
+    close(bd.fee, 10000, 0.001);
+    close(bd.ctc, 110000, 0.001);
+    FS.state.settings.comm.inclCtc = true;
+    FS.state.settings.comm.exclCtc = false;
+    bd = FS.calc.budgetBreakdown();
+    close(bd.media, 90909.09, 0.01);
+    close(bd.ctc, 100000, 0.001);
+  });
+  test('vast maximum is harde cap en start pas boven de drempel', () => {
+    setup([{ id: 1, budget: 100000, segs: [{ b: 100000, tac: [{ b: 100000, ch: { tv: 100000 } }] }] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 200000, rate: 0.1 }], { enabled: true, above: 100000, kind: 'amount', value: 5000 });
+    close(FS.calc.totalFee(), 10000, 0.001);
+    FS.state.campaigns[0].budget = 120000;
+    close(FS.calc.totalFee(), 5000, 0.001);
+    const capped = FS.calc.feeBreakdown();
+    eq(capped.scopes[0].cap.applied, true);
+    close(capped.components.reduce((sum, row) => sum + row.fee, 0), 5000, 0.001);
+  });
+  test('percentage-maximum volgt de CTC-richting', () => {
+    setup([{ id: 1, budget: 120000, segs: [{ b: 120000, tac: [{ b: 120000, ch: { tv: 120000 } }] }] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 200000, rate: 0.1 }], { enabled: true, above: 100000, kind: 'rate', value: 0.05 });
+    close(FS.calc.totalFee(), 6000, 0.001);
+  });
+  test('ongeldig maximum wordt genegeerd en niet omgezet naar nul-cap', () => {
+    setup([{ id: 1, budget: 120000, segs: [{ b: 120000, tac: [{ b: 120000, ch: { tv: 120000 } }] }] }]);
+    useExclCtc();
+    FS.state.feeTiers = FS.state.mergeFeeTiers({
+      enabled: true, scope: 'campaign', tiers: [{ id: 'one', upTo: 200000, rate: 0.1, channelRates: {} }],
+      cap: { enabled: true, above: 100000, kind: 'amount', value: null },
+    });
+    eq(FS.state.feeTiers.cap.value, null);
+    close(FS.calc.totalFee(), 12000, 0.001);
+  });
+  test('gedeeltelijk actual wordt forecast; volledig actual wordt definitief', () => {
+    setup([{ id: 1, budget: 0, segs: [
+      { b: 40000, actualized: true, actualBudget: 20000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+      { b: 40000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+    ] }]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 50000, rate: 0.1 }, { upTo: 100000, rate: 0.08 }]);
+    let info = FS.calc.feeBreakdown();
+    eq(info.status, 'forecast');
+    close(info.baseTotal, 60000, 0.001);
+    close(info.total, 4800, 0.001);
+    FS.state.campaigns[0].segs[1].actualized = true;
+    FS.state.campaigns[0].segs[1].actualBudget = 30000;
+    info = FS.calc.feeBreakdown();
+    eq(info.status, 'actual');
+    close(info.baseTotal, 50000, 0.001);
+    close(info.total, 5000, 0.001);
+  });
+  test('oude actualized flight zonder tactic-actuals valt terug op rato planned', () => {
+    setup([{ id: 1, budget: 0, segs: [{ b: 100000, actualized: true, actualBudget: 50000, tac: [
+      { b: 60000, ch: { tv: 60000 } }, { b: 40000, ch: { social: 40000 } },
+    ] }] }]);
+    useExclCtc();
+    useTiers('flight', [{ upTo: 100000, rate: 0.1 }]);
+    const info = FS.calc.feeBreakdown();
+    close(info.baseTotal, 50000, 0.001);
+    close(info.total, 5000, 0.001);
+    close(info.components.filter((row) => row.channelId === 'tv').reduce((sum, row) => sum + row.amount, 0), 30000, 0.001);
+  });
+  test('inconsistente geïmporteerde actuals worden niet stil teruggeschaald', () => {
+    setup([{ id: 1, budget: 0, segs: [{ b: 100000, actualized: true, actualBudget: 100000, tac: [
+      { b: 60000, ch: { tv: 60000 }, actual: 80000 },
+      { b: 40000, ch: { social: 40000 }, actual: 40000 },
+    ] }] }]);
+    useExclCtc();
+    useTiers('flight', [{ upTo: 100000, rate: 0.1 }]);
+    const info = FS.calc.feeBreakdown();
+    close(info.total, 0, 0.001);
+    eq(info.errors.length, 1);
+    eq(info.components.length, 0);
+  });
+
+  /* ============ actualverdeling ============ */
+  group('actualverdeling');
+  test('handmatige actual blijft staan en restant wordt naar ontbrekende tactic verdeeld', () => {
+    setup([]);
+    const flight = { tac: [{ b: 60000, actual: 20000 }, { b: 40000 }] };
+    const result = FS.calc.applyFlightActualDistribution(flight, 50000);
+    eq(result.ok, true);
+    close(flight.tac[0].actual, 20000, 0.001);
+    close(flight.tac[1].actual, 30000, 0.001);
+    eq(flight.tac[1].actualAuto, true);
+  });
+  test('expliciete actuals boven flighttotaal worden geweigerd', () => {
+    setup([]);
+    const result = FS.calc.planFlightActualDistribution({ tac: [{ b: 1, actual: 60 }, { b: 1, actual: 50 }] }, 100);
+    eq(result.ok, false);
+  });
+  test('afronding over drie tactics sluit exact op centen', () => {
+    setup([]);
+    const flight = { tac: [{ b: 1 }, { b: 1 }, { b: 1 }] };
+    const result = FS.calc.applyFlightActualDistribution(flight, 100);
+    eq(result.ok, true);
+    close(flight.tac.reduce((sum, tactic) => sum + tactic.actual, 0), 100, 0.0001);
+    close(flight.tac[0].actual, 33.34, 0.0001);
+  });
+  test('creatie tooling en uren veranderen de staffelfee niet', () => {
+    setup([{ id: 1, budget: 0, segs: [{ b: 50000, cb: 10000, tc: 20000, ub: 30000, tac: [{ b: 50000, ch: { tv: 50000 } }] }] }]);
+    useExclCtc();
+    useTiers('flight', [{ upTo: 50000, rate: 0.1 }]);
+    const before = FS.calc.totalFee();
+    FS.state.creatieJournal.mods.push({ a: 99999 });
+    FS.state.toolingJournal.mods.push({ a: 99999 });
+    FS.state.urenJournal.mods.push({ a: 99999 });
+    close(FS.calc.totalFee(), before, 0.001);
+    close(before, 5000, 0.001);
   });
 
   /* ============ budgetJaar ============ */

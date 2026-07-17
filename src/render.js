@@ -343,7 +343,10 @@
     const totUren = c.totalUrenFlights() + c.calcUren();
     const rest = FS.state.jaarTotal - bd.ctc - totCreatie - totTooling - totUren;
     const feeArrow = isExcl ? '➕' : '➖';
-    const feeNote = isExcl ? 'bovenop budget' : 'in budget verwerkt';
+    const feeBasis = isExcl ? 'bovenop budget' : 'in budget verwerkt';
+    const feeStatus = bd.feeStatus === 'actual' ? 'actual'
+      : bd.feeStatus === 'forecast' ? 'prognose: actual + planned' : 'planned prognose';
+    const feeNote = bd.feeTiersEnabled ? `${feeBasis} · ${feeStatus}` : feeBasis;
     let html = `<div class="g-row g-foot g-media"><div class="g-label">Netto Media</div><div class="g-budget">${esc(fC(bd.media))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-fee"><div class="g-label">${feeArrow} Handling fee <span class="g-foot-note">${feeNote}</span></div><div class="g-budget">${esc(fC(bd.fee))}</div><div class="g-bars"></div></div>`
       + `<div class="g-row g-foot g-tot"><div class="g-label">Totaal CTC</div><div class="g-budget">${esc(fC(bd.ctc))}</div><div class="g-bars"></div></div>`;
@@ -476,7 +479,10 @@
     const subtitle = bj.mods.length
       ? `Basis ${fC(bj.base)} + ${bj.mods.length} wijz.`
       : 'Klik voor journal';
-    const feeSub = bd.mode === 'excl' ? 'bovenop budget' : 'in budget verwerkt';
+    const feeBasis = bd.mode === 'excl' ? 'bovenop budget' : 'in budget verwerkt';
+    const feeStatus = bd.feeStatus === 'actual' ? 'actual'
+      : bd.feeStatus === 'forecast' ? 'prognose: actual + planned' : 'planned prognose';
+    const feeSub = bd.feeTiersEnabled ? `${feeBasis} · ${feeStatus}` : feeBasis;
     document.getElementById('summaryBar').innerHTML =
       `<div class="scard s-click" id="scJ"><div class="sl">Jaarbudget</div><div class="sv">${esc(fC(FS.state.jaarTotal))}</div><div class="sd">${esc(subtitle)}</div></div>`
       + `<div class="scard s-media"><div class="sl">Netto Media</div><div class="sv">${esc(fC(bd.media))}</div></div>`

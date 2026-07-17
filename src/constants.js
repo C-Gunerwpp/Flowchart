@@ -99,6 +99,6 @@
     DEFAULT_BASE_BUDGET: 0,
     NOW_WEEK_INDICATOR: 15,
     STORAGE_KEY: 'fs13',
-    FILE_VERSION: 7,
+    FILE_VERSION: 8,
   };
 })(window.FS = window.FS || {});

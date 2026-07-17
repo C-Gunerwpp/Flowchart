@@ -868,14 +868,17 @@
     const filtUren = spend.uren.reduce((a, v) => a + v, 0);
 
     // Full-year referenties (voor jaarbudget / fee / rest)
-    const totalFee = FS.calc.totalFee();
+    const budgetInfo = FS.calc.budgetBreakdown();
+    const totalFee = budgetInfo.fee;
     const totCreatie = FS.calc.totalCreatieFlights() + FS.calc.calcCreatie();
     const totTooling = FS.calc.totalToolingFlights() + FS.calc.calcTooling();
     const totUren = FS.calc.totalUrenFlights() + FS.calc.calcUren();
     const jaar = s.jaarTotal;
     // Resterend volgt de actual-leidende besteding (geactualiseerde flights tellen
     // mee met hun werkelijk bestede budget).
-    const rest = jaar - FS.calc.grandTotalActual() - totCreatie - totTooling - totUren;
+    const rest = jaar - budgetInfo.ctc - totCreatie - totTooling - totUren;
+    const feeStatus = budgetInfo.feeStatus === 'actual' ? 'actual'
+      : budgetInfo.feeStatus === 'forecast' ? 'prognose' : 'planned';
 
     const numCamps = s.campaigns.length;
     const numFlights = s.campaigns.reduce((a, c) => a + c.segs.length, 0);
@@ -984,7 +987,7 @@
         + kpi(isFiltered ? '🎨 Creatie (periode)' : '🎨 Creatie', fC(filtCreatie))
         + kpi(isFiltered ? '🔧 Tooling (periode)' : '🔧 Tooling', fC(filtTooling))
         + kpi(isFiltered ? '⏱️ Uren (periode)' : '⏱️ Uren', fC(filtUren))
-        + kpi('💰 Fee totaal', fC(totalFee))
+        + kpi(`💰 Fee totaal${budgetInfo.feeTiersEnabled ? ` (${feeStatus})` : ''}`, fC(totalFee))
         + kpi(rest >= 0 ? '✓ Restbudget (jaar)' : '⚠ Overschrijding (jaar)', fC(Math.abs(rest)), rest >= 0 ? 'pos' : 'neg')
         + kpi('📋 Campagnes', String(numCamps))
         + kpi('✈️ Flights', String(numFlights))
@@ -1170,12 +1173,15 @@
 
   function generatePDF() {
     const s = FS.state;
-    const grandTotal = FS.calc.grandTotal();
-    const totalFee = FS.calc.totalFee();
+    const budgetInfo = FS.calc.budgetBreakdown();
+    const grandTotal = budgetInfo.media;
+    const totalFee = budgetInfo.fee;
     const totCreatie = FS.calc.totalCreatieFlights() + FS.calc.calcCreatie();
     const totTooling = FS.calc.totalToolingFlights() + FS.calc.calcTooling();
     const totUren = FS.calc.totalUrenFlights() + FS.calc.calcUren();
-    const rest = s.jaarTotal - grandTotal - totCreatie - totTooling - totUren;
+    const rest = s.jaarTotal - budgetInfo.ctc - totCreatie - totTooling - totUren;
+    const feeStatus = budgetInfo.feeStatus === 'actual' ? 'actual'
+      : budgetInfo.feeStatus === 'forecast' ? 'prognose: actual + planned' : 'planned prognose';
 
     const channelHtml = donut(aggregateChannels(), FS.constants.CHANNELS);
     const buyingHtml = buyingProtocolTable(buyingProtocolEntries());
@@ -1257,7 +1263,7 @@
 <div class="kpis">
   <div class="kpi"><div class="l">Jaarbudget</div><div class="v">${esc(fC(s.jaarTotal))}</div></div>
   <div class="kpi"><div class="l">Media (campagnes)</div><div class="v">${esc(fC(grandTotal))}</div></div>
-  <div class="kpi"><div class="l">Handling Fee</div><div class="v">${esc(fC(totalFee))}</div></div>
+  <div class="kpi"><div class="l">Handling Fee${budgetInfo.feeTiersEnabled ? ` · ${esc(feeStatus)}` : ''}</div><div class="v">${esc(fC(totalFee))}</div></div>
   <div class="kpi"><div class="l">Creatie</div><div class="v">${esc(fC(totCreatie))}</div></div>
   <div class="kpi"><div class="l">Tooling</div><div class="v">${esc(fC(totTooling))}</div></div>
   <div class="kpi"><div class="l">Uren</div><div class="v">${esc(fC(totUren))}</div></div>

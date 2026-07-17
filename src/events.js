@@ -495,6 +495,12 @@
 
     /* ----- Modal body: clicks ----- */
     const modalBody = document.getElementById('modalBody');
+    function modalSelectionLocked(s, ci) {
+      const camp = s.campaigns[ci];
+      if (!camp) return false;
+      if (camp.locked) return true;
+      return s.selectedFlight !== null && !!(camp.segs[s.selectedFlight] && camp.segs[s.selectedFlight].actualized);
+    }
     modalBody.addEventListener('click', (e) => {
       const ci = findCampaignIndex(FS.state.selectedCamp);
       if (ci < 0) return;
@@ -510,6 +516,8 @@
         FS.modals.showTacticModal(ci, s.selectedFlight, parseInt(tiEl.dataset.ti, 10));
         return;
       }
+
+      if (modalSelectionLocked(s, ci) && !e.target.closest('.allow-locked')) return;
 
       const palTrigger = e.target.closest('.pal-trigger');
       if (palTrigger) {
@@ -643,6 +651,7 @@
       if (ci < 0) return;
       const el = e.target;
       const s = FS.state;
+      if (modalSelectionLocked(s, ci)) return;
 
       if (el.id === 'mCname') {
         s.campaigns[ci].label = el.value;
@@ -682,6 +691,7 @@
       if (ci < 0) return;
       const el = e.target;
       const s = FS.state;
+      if (modalSelectionLocked(s, ci)) return;
 
       if (el.classList.contains('chv')) {
         if (s.selectedFlight === null || s.selectedTactic === null) return;
@@ -876,7 +886,13 @@
           return;
         }
         // mTb is readonly — wordt automatisch berekend uit de kanaalbudgetten.
-        if (el.id === 'mTact') { t.actual = parseFloat(el.value) || 0; if (!t.actual) delete t.actual; re(); return; }
+        if (el.id === 'mTact') {
+          if (el.value.trim() === '') delete t.actual;
+          else t.actual = Math.max(0, parseFloat(el.value) || 0);
+          delete t.actualAuto;
+          re();
+          return;
+        }
         if (el.id === 'mTnt') { t.nt = el.value; FS.io.autoSave(); }
       }
     });
@@ -900,10 +916,34 @@
       if (!Array.isArray(FS.state.settings.pots.list)) FS.state.settings.pots.list = [];
       return FS.state.settings.pots;
     }
+    function ensureFeeTiers() {
+      if (!FS.state.feeTiers || typeof FS.state.feeTiers !== 'object') {
+        FS.state.feeTiers = FS.state.defaultFeeTiers();
+      }
+      if (!Array.isArray(FS.state.feeTiers.tiers)) FS.state.feeTiers.tiers = [];
+      if (!FS.state.feeTiers.cap) FS.state.feeTiers.cap = { enabled: false, above: 0, kind: 'amount', value: 0 };
+      return FS.state.feeTiers;
+    }
+    function findFeeTier(id) {
+      return ensureFeeTiers().tiers.find((tier) => tier.id === id);
+    }
+    function sortFeeTiers() {
+      ensureFeeTiers().tiers.sort((left, right) => {
+        const a = Number(left.upTo); const b = Number(right.upTo);
+        const av = Number.isFinite(a) && a > 0 ? a : Number.MAX_VALUE;
+        const bv = Number.isFinite(b) && b > 0 ? b : Number.MAX_VALUE;
+        return av - bv;
+      });
+    }
     function afterSettChange() {
       FS.calc.calcJaar();
       FS.modals.renderSettings();
       FS.render.render();
+    }
+    function afterFeeTierChange() {
+      sortFeeTiers();
+      afterSettChange();
+      warnFeeTierChange();
     }
 
     const settBody = document.getElementById('settBody');
@@ -953,6 +993,48 @@
         else FS.state.fees[ch] = v / 100;
         afterSettChange();
         warnFeeChange(ch);
+        return;
+      }
+      if (el.classList.contains('ft-up-to')) {
+        const tier = findFeeTier(el.dataset.id);
+        if (tier) tier.upTo = el.value.trim() === '' ? null : Number(el.value);
+        afterFeeTierChange();
+        return;
+      }
+      if (el.classList.contains('ft-rate')) {
+        const tier = findFeeTier(el.dataset.id);
+        if (tier) tier.rate = el.value.trim() === '' ? null : Number(el.value) / 100;
+        afterFeeTierChange();
+        return;
+      }
+      if (el.classList.contains('ft-ch-rate')) {
+        const tier = findFeeTier(el.dataset.id);
+        if (tier) {
+          if (!tier.channelRates) tier.channelRates = {};
+          if (el.value.trim() === '') delete tier.channelRates[el.dataset.ch];
+          else tier.channelRates[el.dataset.ch] = Number(el.value) / 100;
+        }
+        afterFeeTierChange();
+        return;
+      }
+      if (el.id === 'feeCapAbove') {
+        const cap = ensureFeeTiers().cap;
+        cap.above = el.value.trim() === '' ? null : Number(el.value);
+        afterFeeTierChange();
+        return;
+      }
+      if (el.id === 'feeCapKind') {
+        const cap = ensureFeeTiers().cap;
+        cap.kind = el.value === 'rate' ? 'rate' : 'amount';
+        cap.value = 0;
+        afterFeeTierChange();
+        return;
+      }
+      if (el.id === 'feeCapValue') {
+        const cap = ensureFeeTiers().cap;
+        cap.value = el.value.trim() === '' ? null : (cap.kind === 'rate' ? Number(el.value) / 100 : Number(el.value));
+        afterFeeTierChange();
+        return;
       }
 
       /* ----- Communicatie naar klant (incl./excl. CTC + BTW) ----- */
@@ -1020,6 +1102,60 @@
         if (j >= 0 && j < arr.length) { const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp; afterSettChange(); }
         return;
       }
+      if (t.closest('.fee-tier-toggle label')) {
+        const switchEl = document.getElementById('feeTiersEnable');
+        if (switchEl) switchEl.click();
+        return;
+      }
+      if (t.id === 'feeTiersEnable') {
+        const config = ensureFeeTiers();
+        config.enabled = !config.enabled;
+        if (config.enabled && !config.tiers.length) {
+          config.tiers.push({ id: FS.state.newFeeTierId(), upTo: 50000, rate: 0, channelRates: {} });
+        }
+        afterFeeTierChange();
+        return;
+      }
+      const scopeBtn = t.closest('.fee-scope-btn');
+      if (scopeBtn) {
+        ensureFeeTiers().scope = scopeBtn.dataset.ftScope === 'flight' ? 'flight' : 'campaign';
+        afterFeeTierChange();
+        return;
+      }
+      const channelToggle = t.closest('.ft-ch-toggle');
+      if (channelToggle) {
+        FS.modals.toggleFeeTierChannels(channelToggle.dataset.id);
+        FS.modals.renderSettings();
+        return;
+      }
+      const tierDelete = t.closest('.ft-del');
+      if (tierDelete) {
+        const config = ensureFeeTiers();
+        const index = config.tiers.findIndex((tier) => tier.id === tierDelete.dataset.id);
+        if (index >= 0) config.tiers.splice(index, 1);
+        FS.modals.forgetFeeTierChannels(tierDelete.dataset.id);
+        afterFeeTierChange();
+        return;
+      }
+      if (t.classList.contains('ft-add')) {
+        const config = ensureFeeTiers();
+        const highest = config.tiers.reduce((max, tier) => Number(tier.upTo) > max ? Number(tier.upTo) : max, 0);
+        config.tiers.push({ id: FS.state.newFeeTierId(), upTo: highest > 0 ? highest + 50000 : 50000, rate: 0, channelRates: {} });
+        sortFeeTiers();
+        afterFeeTierChange();
+        return;
+      }
+      if (t.closest('.fee-cap .ss-toggle label')) {
+        const switchEl = document.getElementById('feeCapEnable');
+        if (switchEl) switchEl.click();
+        return;
+      }
+      if (t.id === 'feeCapEnable') {
+        const cap = ensureFeeTiers().cap;
+        cap.enabled = !cap.enabled;
+        afterFeeTierChange();
+        return;
+      }
       if (t.id === 'sjNotifyAct') {
         FS.state.settings = FS.state.settings || {};
         FS.state.settings.notifyActuals = !FS.state.settings.notifyActuals;
@@ -1069,6 +1205,11 @@
     });
 
     settBody.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && (e.target.id === 'feeTiersEnable' || e.target.id === 'feeCapEnable')) {
+        e.preventDefault();
+        e.target.click();
+        return;
+      }
       if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur();
     });
 
@@ -1236,6 +1377,24 @@
     clearTimeout(feeWarnTimer);
     feeWarnTimer = setTimeout(() => {
       FS.toast.show(`Fee voor kanaal '${channelId}' gewijzigd — ${usageCount} tactic(s) bevatten dit kanaal. Totalen zijn herberekend.`, 'warn', 5500);
+    }, 600);
+  }
+
+  let feeTierWarnTimer = null;
+  function warnFeeTierChange() {
+    if (!FS.toast || !FS.state.feeTiers || !FS.state.feeTiers.enabled) return;
+    const config = FS.state.feeTiers;
+    const scopeCount = config.scope === 'flight'
+      ? FS.state.campaigns.reduce((sum, camp) => sum + (camp.segs || []).length, 0)
+      : FS.state.campaigns.length;
+    if (!scopeCount) return;
+    const actualCount = config.scope === 'flight'
+      ? FS.state.campaigns.reduce((sum, camp) => sum + (camp.segs || []).filter((flight) => flight.actualized).length, 0)
+      : FS.state.campaigns.filter((camp) => (camp.segs || []).some((flight) => flight.actualized)).length;
+    clearTimeout(feeTierWarnTimer);
+    feeTierWarnTimer = setTimeout(() => {
+      const actualNote = actualCount ? `, waaronder ${actualCount} met actuals` : '';
+      FS.toast.show(`Fee-staffels gewijzigd — ${scopeCount} ${config.scope === 'flight' ? 'flight(s)' : 'campagne(s)'} herberekend${actualNote}.`, 'warn', 5500);
     }, 600);
   }
 
