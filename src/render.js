@@ -172,6 +172,7 @@
       tc = '#FFFFFF';
       extraCls = ' g-bar-actual';
     }
+    if (f.selected) extraCls += ' g-sel';
     const stc = statusColor(status);
     const span = rng.eCol - rng.sCol;
     // Budget altijd tonen wanneer aanwezig (ook op smalle balkjes). Naam komt
@@ -262,12 +263,14 @@
         const tc = autoTextColor(col);
         const b = FS.calc.flightBudget(f);
         const span = ew - sw + 1;
+        const selectedFlight = camp.id === FS.state.selectedCamp
+          && fi === FS.state.selectedFlight && FS.state.selectedTactic === null;
         bars += barHTML(f.sd, f.ed, col, tc, span >= 4 ? f.n : '', b, f.st || 'concept',
           ` data-ci="${a(camp.id)}" data-fi="${fi}"`,
-          { actualized: !!f.actualized, needAct: FS.calc.flightNeedsActuals(f) });
+          { actualized: !!f.actualized, needAct: FS.calc.flightNeedsActuals(f), selected: selectedFlight });
       });
     }
-    const selected = camp.id === FS.state.selectedCamp;
+    const selected = camp.id === FS.state.selectedCamp && FS.state.selectedFlight === null;
     const lockIc = camp.locked ? `<span style="margin-left:4px;font-size:10px" title="Vergrendeld">🔒</span>` : '';
     const fnBadge = campFunnels(camp).map((id) => funnelStageInfo(id)).filter(Boolean).map((fst) =>
       `<span class="g-funnel-bd" style="background:${a(fst.color)}" title="${a(fst.name)}">${fst.icon ? a(fst.icon) : a((fst.name || '?').slice(0, 1).toUpperCase())}</span>`,
@@ -294,18 +297,20 @@
     const sw = dateToWeek(flight.sd);
     const ew = dateToWeek(flight.ed);
     const needAct = FS.calc.flightNeedsActuals(flight);
+    const selected = camp.id === FS.state.selectedCamp
+      && fi === FS.state.selectedFlight && FS.state.selectedTactic === null;
     let bars = '';
     if (!isExp) {
       // Toon altijd één flight-bar; tactics worden pas zichtbaar als de flight
-      // wordt opengeklapt. Zo opent een klik op deze bar de flight-modal.
+      // wordt opengeklapt. Klik selecteert de flight; dubbelklik opent details.
       bars += barHTML(flight.sd, flight.ed, col, tc, flight.n, FS.calc.flightBudget(flight),
         flight.st || 'concept', ` data-ci="${a(camp.id)}" data-fi="${fi}"`,
-        { actualized: !!flight.actualized, needAct });
+        { actualized: !!flight.actualized, needAct, selected });
     }
     const stc = statusColor(flight.st);
     const hasTac = !!(flight.tac && flight.tac.length);
     const fOk = flight.actualized ? `<span style="margin-left:4px;color:#059669;font-weight:700" title="Geactualiseerd">✓</span>` : '';
-    return `<div class="g-row g-sub${isExp ? ' g-exp' : ''}" data-ci="${a(camp.id)}" data-fi="${fi}">`
+    return `<div class="g-row g-sub${isExp ? ' g-exp' : ''}${selected ? ' g-sel' : ''}" data-ci="${a(camp.id)}" data-fi="${fi}">`
       + `<div class="g-label">`
       + (hasTac
         ? `<span class="g-toggle" data-ci="${a(camp.id)}" data-fi="${fi}">${isExp ? '▼' : '▶'}</span>`
@@ -323,12 +328,14 @@
     const tc = autoTextColor(col);
     const sw = dateToWeek(tactic.sd);
     const ew = dateToWeek(tactic.ed);
-    return `<div class="g-row g-tac" data-ci="${a(camp.id)}" data-fi="${fi}" data-ti="${ti}">`
+    const selected = camp.id === FS.state.selectedCamp
+      && fi === FS.state.selectedFlight && ti === FS.state.selectedTactic;
+    return `<div class="g-row g-tac${selected ? ' g-sel' : ''}" data-ci="${a(camp.id)}" data-fi="${fi}" data-ti="${ti}">`
       + `<div class="g-label">`
       + `<span class="g-fdot" style="background:${a(col)}"></span>`
       + `<span class="g-name">${esc(tactic.n || `Tactic ${ti + 1}`)}</span></div>`
       + `<div class="g-budget">${esc(fC(tactic.b))}</div>`
-      + `<div class="g-bars">${barHTML(tactic.sd, tactic.ed, col, tc, tactic.n, tactic.b, flight.st || 'concept', ` data-ci="${a(camp.id)}" data-fi="${fi}" data-ti="${ti}"`)}</div>`
+        + `<div class="g-bars">${barHTML(tactic.sd, tactic.ed, col, tc, tactic.n, tactic.b, flight.st || 'concept', ` data-ci="${a(camp.id)}" data-fi="${fi}" data-ti="${ti}"`, { selected })}</div>`
       + `</div>`;
   }
 

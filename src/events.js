@@ -32,15 +32,73 @@
 
   FS.events = { showApp };
 
+  let entityClipboard = null;
+
+  function cloneEntity(entity) {
+    return JSON.parse(JSON.stringify(entity));
+  }
+
+  function isoDate(date) {
+    return date.toISOString().substring(0, 10);
+  }
+
+  function nextWeekMonday() {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    const isoDay = date.getDay() || 7;
+    date.setDate(date.getDate() + (8 - isoDay));
+    return isoDate(date);
+  }
+
+  function shiftDateByDays(dateStr, days) {
+    const date = new Date(`${dateStr}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    date.setDate(date.getDate() + days);
+    return isoDate(date);
+  }
+
+  function shiftTacticByDays(tactic, days) {
+    tactic.sd = shiftDateByDays(tactic.sd, days);
+    tactic.ed = shiftDateByDays(tactic.ed, days);
+  }
+
+  function shiftFlightByDays(flight, days) {
+    flight.sd = shiftDateByDays(flight.sd, days);
+    flight.ed = shiftDateByDays(flight.ed, days);
+    (flight.tac || []).forEach((tactic) => shiftTacticByDays(tactic, days));
+  }
+
+  function moveEntityToNextWeek(type, entity) {
+    let start = entity.sd;
+    if (type === 'campaign') {
+      start = (entity.segs || []).reduce((earliest, flight) => {
+        if (!flight.sd) return earliest;
+        return !earliest || flight.sd < earliest ? flight.sd : earliest;
+      }, '');
+    }
+    if (!start) return;
+    const source = new Date(`${start}T12:00:00`);
+    const target = new Date(`${nextWeekMonday()}T12:00:00`);
+    if (Number.isNaN(source.getTime())) return;
+    const days = Math.round((target - source) / 86400000);
+    if (type === 'campaign') (entity.segs || []).forEach((flight) => shiftFlightByDays(flight, days));
+    else if (type === 'flight') shiftFlightByDays(entity, days);
+    else shiftTacticByDays(entity, days);
+  }
+
+  function allocateCampaignId() {
+    const s = FS.state;
+    const maxId = s.campaigns.reduce((max, camp) => Math.max(max, Number(camp.id) || 0), 0);
+    const id = Math.max(Number(s.nextId) || 0, maxId + 1);
+    s.nextId = id + 1;
+    return id;
+  }
+
   /** Voeg een nieuwe campagne toe met een gegarandeerd uniek id en open de
    *  bewerk-modal. Gedeeld door de topbar-CTA, de lege-staat-knop en Ctrl+N. */
   function addCampaign() {
     const s = FS.state;
-    // Bereken een id dat nooit botst met een bestaande campagne (ook niet bij
-    // ingeladen bestanden zonder correcte nextId).
-    const maxId = s.campaigns.reduce((m, c) => Math.max(m, Number(c.id) || 0), 0);
-    const newId = Math.max(Number(s.nextId) || 0, maxId + 1);
-    s.nextId = newId + 1;
+    const newId = allocateCampaignId();
     const newCamp = {
       id: newId,
       sec: 'losse',
@@ -61,6 +119,168 @@
     FS.modals.showCampModal(findCampaignIndex(newCamp.id));
   }
   FS.events.addCampaign = addCampaign;
+
+  function selectedEntityForCopy() {
+    const s = FS.state;
+    const ci = findCampaignIndex(s.selectedCamp);
+    if (ci < 0) return null;
+    const camp = s.campaigns[ci];
+    if (s.selectedTactic !== null && s.selectedFlight !== null) {
+      const flight = camp.segs[s.selectedFlight];
+      const tactic = flight && flight.tac && flight.tac[s.selectedTactic];
+      return tactic ? { type: 'tactic', data: tactic, camp, flight } : null;
+    }
+    if (s.selectedFlight !== null) {
+      const flight = camp.segs[s.selectedFlight];
+      return flight ? { type: 'flight', data: flight, camp, flight } : null;
+    }
+    return { type: 'campaign', data: camp, camp, flight: null };
+  }
+
+  function copySelectedEntity() {
+    const selected = selectedEntityForCopy();
+    if (!selected) return false;
+    if (selected.camp.locked || (selected.flight && selected.flight.actualized)) {
+      if (FS.toast) FS.toast.show('Dit onderdeel is vergrendeld en kan niet worden gekopieerd', 'warn');
+      return true;
+    }
+    entityClipboard = {
+      type: selected.type,
+      data: cloneEntity(selected.data),
+      sourceCampId: selected.camp.id,
+    };
+    const names = { campaign: 'Campagne', flight: 'Flight', tactic: 'Tactic' };
+    if (FS.toast) FS.toast.show(`${names[selected.type]} gekopieerd`, 'success');
+    return true;
+  }
+
+  function selectGanttEntity(campId, flightIndex, tacticIndex) {
+    const s = FS.state;
+    s.selectedCamp = campId;
+    s.selectedFlight = flightIndex == null ? null : flightIndex;
+    s.selectedTactic = tacticIndex == null ? null : tacticIndex;
+
+    document.querySelectorAll('#gantt .g-row.g-sel, #gantt .g-bar.g-sel').forEach((el) => el.classList.remove('g-sel'));
+    const rows = Array.from(document.querySelectorAll(`#gantt .g-row[data-ci="${campId}"]`));
+    const row = rows.find((candidate) => {
+      if (s.selectedTactic !== null) {
+        return candidate.dataset.fi === String(s.selectedFlight) && candidate.dataset.ti === String(s.selectedTactic);
+      }
+      if (s.selectedFlight !== null) {
+        return candidate.classList.contains('g-sub') && candidate.dataset.fi === String(s.selectedFlight);
+      }
+      return candidate.classList.contains('g-camp');
+    });
+    if (row) row.classList.add('g-sel');
+    if (s.selectedFlight !== null) {
+      document.querySelectorAll(`#gantt .g-bar[data-ci="${campId}"][data-fi="${s.selectedFlight}"]`).forEach((bar) => {
+        const matchesTactic = s.selectedTactic === null
+          ? bar.dataset.ti === undefined
+          : bar.dataset.ti === String(s.selectedTactic);
+        if (matchesTactic) bar.classList.add('g-sel');
+      });
+    }
+  }
+
+  function finishEntityPaste(ci, flightIndex, tacticIndex, message) {
+    FS.modals.clampFunnelHierarchy(FS.state.campaigns[ci]);
+    selectGanttEntity(FS.state.campaigns[ci].id, flightIndex, tacticIndex);
+    FS.render.render();
+    FS.io.autoSave();
+    if (FS.toast) FS.toast.show(message, 'success');
+  }
+
+  function pasteCopiedCampaign() {
+    const s = FS.state;
+    const copy = cloneEntity(entityClipboard.data);
+    copy.id = allocateCampaignId();
+    copy.label = `${copy.label || 'Campagne'} (kopie)`;
+    moveEntityToNextWeek('campaign', copy);
+    FS.modals.clampFunnelHierarchy(copy);
+
+    let anchor = findCampaignIndex(s.selectedCamp);
+    if (anchor < 0) anchor = findCampaignIndex(entityClipboard.sourceCampId);
+    let insertAt = -1;
+    if (anchor >= 0 && s.campaigns[anchor].sec === copy.sec) insertAt = anchor + 1;
+    if (insertAt < 0) {
+      for (let i = 0; i < s.campaigns.length; i++) {
+        if (s.campaigns[i].sec === copy.sec) insertAt = i + 1;
+      }
+    }
+    if (insertAt < 0) {
+      insertAt = copy.sec === 'ao' ? s.campaigns.length : s.campaigns.findIndex((camp) => camp.sec === 'ao');
+      if (insertAt < 0) insertAt = s.campaigns.length;
+    }
+
+    s.campaigns.splice(insertAt, 0, copy);
+    selectGanttEntity(copy.id, null, null);
+    FS.render.render();
+    FS.io.autoSave();
+    if (FS.toast) FS.toast.show('Campagne geplakt', 'success');
+  }
+
+  function pasteCopiedFlight(ci) {
+    const s = FS.state;
+    const camp = s.campaigns[ci];
+    if (camp.locked) {
+      if (FS.toast) FS.toast.show('Deze campagne is vergrendeld', 'warn');
+      return;
+    }
+    const copy = cloneEntity(entityClipboard.data);
+    moveEntityToNextWeek('flight', copy);
+    const insertAt = s.selectedFlight !== null ? s.selectedFlight + 1 : camp.segs.length;
+    camp.segs.splice(insertAt, 0, copy);
+    FS.modals.checkCampBudget(ci, () => {
+      finishEntityPaste(ci, insertAt, null, 'Flight geplakt');
+    });
+  }
+
+  function clampTacticDates(tactic, flight) {
+    tactic.sd = tactic.sd < flight.sd ? flight.sd : tactic.sd > flight.ed ? flight.ed : tactic.sd;
+    tactic.ed = tactic.ed > flight.ed ? flight.ed : tactic.ed < flight.sd ? flight.sd : tactic.ed;
+    if (tactic.ed < tactic.sd) tactic.ed = tactic.sd;
+  }
+
+  function pasteCopiedTactic(ci) {
+    const s = FS.state;
+    const camp = s.campaigns[ci];
+    const fi = s.selectedFlight;
+    const flight = fi !== null ? camp.segs[fi] : null;
+    if (!flight) {
+      if (FS.toast) FS.toast.show('Open eerst de flight waarin je wilt plakken', 'warn');
+      return;
+    }
+    if (camp.locked || flight.actualized) {
+      if (FS.toast) FS.toast.show('Deze flight is vergrendeld', 'warn');
+      return;
+    }
+    const copy = cloneEntity(entityClipboard.data);
+    moveEntityToNextWeek('tactic', copy);
+    clampTacticDates(copy, flight);
+    if (!Array.isArray(flight.tac)) flight.tac = [];
+    const insertAt = s.selectedTactic !== null ? s.selectedTactic + 1 : flight.tac.length;
+    flight.tac.splice(insertAt, 0, copy);
+    FS.modals.checkCampBudget(ci, () => {
+      finishEntityPaste(ci, fi, insertAt, 'Tactic geplakt');
+    });
+  }
+
+  function pasteCopiedEntity() {
+    if (!entityClipboard) return false;
+    if (entityClipboard.type === 'campaign') {
+      pasteCopiedCampaign();
+      return true;
+    }
+    const ci = findCampaignIndex(FS.state.selectedCamp);
+    if (ci < 0) {
+      const parentName = entityClipboard.type === 'flight' ? 'campagne' : 'flight';
+      if (FS.toast) FS.toast.show(`Open eerst de ${parentName} waarin je wilt plakken`, 'warn');
+      return true;
+    }
+    if (entityClipboard.type === 'flight') pasteCopiedFlight(ci);
+    else pasteCopiedTactic(ci);
+    return true;
+  }
 
   document.addEventListener('DOMContentLoaded', wireUp);
 
@@ -342,6 +562,22 @@
     const ttEl = document.getElementById('ttip');
     let ttTimer = null;
     const gantt = document.getElementById('gantt');
+    let doubleClickEntity = null;
+
+    function ganttEntityFromTarget(target) {
+      const bar = target.closest('.g-bar[data-ci]');
+      const row = target.closest('.g-row[data-ci]');
+      const source = bar || row;
+      if (!source) return null;
+      const campId = parseInt(source.dataset.ci, 10);
+      if (Number.isNaN(campId)) return null;
+      return {
+        campId,
+        flightIndex: source.dataset.fi === undefined ? null : parseInt(source.dataset.fi, 10),
+        tacticIndex: source.dataset.ti === undefined ? null : parseInt(source.dataset.ti, 10),
+        bar,
+      };
+    }
 
     gantt.addEventListener('click', (e) => {
       const t = e.target;
@@ -381,44 +617,38 @@
 
       const bar = t.closest('.g-bar');
       if (bar) {
-        // Shift-klik = toevoegen aan bulk-selectie i.p.v. modal openen
+        // Shift-klik = toevoegen aan bulk-selectie i.p.v. selecteren.
         if (e.shiftKey) {
           toggleBulkSelect(bar);
           return;
         }
         ttEl.classList.remove('vis');
         clearTimeout(ttTimer);
-        const ciB = parseInt(bar.dataset.ci, 10);
-        const fiB = bar.dataset.fi !== undefined ? parseInt(bar.dataset.fi, 10) : null;
-        const tiB = bar.dataset.ti !== undefined ? parseInt(bar.dataset.ti, 10) : null;
-        const idx = findCampaignIndex(ciB);
-        if (idx < 0) return;
-        if (tiB !== null && fiB !== null) {
-          FS.state.expanded[ciB] = true;
-          FS.state.expandedFlight[`${ciB}_${fiB}`] = true;
-          FS.modals.showTacticModal(idx, fiB, tiB);
-        } else if (fiB !== null) {
-          FS.state.expanded[ciB] = true;
-          FS.modals.showFlightModal(idx, fiB);
-        }
-        return;
       }
 
-      const label = t.closest('.g-label');
-      if (label && !t.closest('.g-toggle')) {
-        const row = label.closest('.g-row');
-        if (!row) return;
-        const ci = parseInt(row.dataset.ci, 10);
-        if (isNaN(ci)) return;
-        const idx = findCampaignIndex(ci);
-        if (idx < 0) return;
-        if (row.classList.contains('g-tac')) {
-          FS.modals.showTacticModal(idx, parseInt(row.dataset.fi, 10), parseInt(row.dataset.ti, 10));
-        } else if (row.classList.contains('g-sub')) {
-          FS.modals.showFlightModal(idx, parseInt(row.dataset.fi, 10));
-        } else if (row.classList.contains('g-camp')) {
-          FS.modals.showCampModal(idx);
-        }
+      let entity = ganttEntityFromTarget(t);
+      if (!entity) return;
+      if (e.detail === 1) doubleClickEntity = entity;
+      else if (e.detail > 1 && doubleClickEntity) entity = doubleClickEntity;
+      selectGanttEntity(entity.campId, entity.flightIndex, entity.tacticIndex);
+    });
+
+    gantt.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button, .g-toggle')) return;
+      const entity = doubleClickEntity || ganttEntityFromTarget(e.target);
+      doubleClickEntity = null;
+      if (!entity) return;
+      const ci = findCampaignIndex(entity.campId);
+      if (ci < 0) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      selectGanttEntity(entity.campId, entity.flightIndex, entity.tacticIndex);
+      if (entity.tacticIndex !== null && entity.flightIndex !== null) {
+        FS.modals.showTacticModal(ci, entity.flightIndex, entity.tacticIndex);
+      } else if (entity.flightIndex !== null) {
+        FS.modals.showFlightModal(ci, entity.flightIndex);
+      } else {
+        FS.modals.showCampModal(ci);
       }
     });
 
@@ -1237,6 +1467,13 @@
       // Ctrl/Cmd+Z (undo) en Ctrl+Y / Ctrl+Shift+Z (redo).
       if ((e.ctrlKey || e.metaKey) && !e.altKey) {
         const key = e.key.toLowerCase();
+        if ((key === 'c' || key === 'v') && !e.shiftKey) {
+          if (isClipboardTarget(e.target)) return;
+          if (key === 'c' && hasSelectedPageText()) return;
+          const handled = key === 'c' ? copySelectedEntity() : pasteCopiedEntity();
+          if (handled) e.preventDefault();
+          return;
+        }
         if (key === 'z' && !e.shiftKey) {
           if (isTypingTarget(e.target)) return;
           e.preventDefault();
@@ -1286,11 +1523,15 @@
         toggleShortcutHelp();
         return;
       }
-      // Delete / Backspace bij actieve bulk-selectie
-      if ((e.key === 'Delete' || e.key === 'Backspace') && !isTypingTarget(e.target)) {
+      // Delete / Backspace: bulkselectie of de enkel geselecteerde Gantt-flight.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !isClipboardTarget(e.target)) {
         if (bulkSelection.size > 0) {
           e.preventDefault();
           bulkDeleteSelection();
+          return;
+        }
+        if (deleteSelectedFlight()) {
+          e.preventDefault();
           return;
         }
       }
@@ -1401,6 +1642,51 @@
   /* ============ Bulk-selectie ============ */
   const bulkSelection = new Set();
 
+  function deleteSelectedFlight() {
+    const modalBg = document.getElementById('modalBg');
+    if (modalBg && modalBg.classList.contains('open')) return false;
+
+    const s = FS.state;
+    if (s.selectedFlight === null || s.selectedTactic !== null) return false;
+    const ci = findCampaignIndex(s.selectedCamp);
+    if (ci < 0) return false;
+    const camp = s.campaigns[ci];
+    const fi = s.selectedFlight;
+    const flight = camp.segs && camp.segs[fi];
+    if (!flight) return false;
+
+    if (camp.locked || flight.actualized) {
+      if (FS.toast) FS.toast.show('Ontgrendel de campagne of heropen de flight om deze te verwijderen', 'warn');
+      return true;
+    }
+
+    // Leg beide kanten synchroon vast: Ctrl+Z werkt ook direct na Delete.
+    if (FS.io && FS.io.writeLocal) FS.io.writeLocal();
+    else if (FS.history && FS.history.commit) FS.history.commit();
+
+    camp.segs.splice(fi, 1);
+    const prefix = `${camp.id}_`;
+    const expanded = {};
+    Object.keys(s.expandedFlight || {}).forEach((key) => {
+      if (!key.startsWith(prefix)) {
+        expanded[key] = s.expandedFlight[key];
+        return;
+      }
+      const index = parseInt(key.slice(prefix.length), 10);
+      if (index < fi) expanded[key] = s.expandedFlight[key];
+      else if (index > fi) expanded[`${prefix}${index - 1}`] = s.expandedFlight[key];
+    });
+    s.expandedFlight = expanded;
+    s.selectedFlight = null;
+    s.selectedTactic = null;
+
+    FS.render.render();
+    if (FS.io && FS.io.writeLocal) FS.io.writeLocal();
+    else if (FS.history && FS.history.commit) FS.history.commit();
+    if (FS.toast) FS.toast.show('Flight verwijderd — Ctrl+Z om terug te draaien', 'success');
+    return true;
+  }
+
   function bulkKey(bar) {
     const ci = bar.dataset.ci;
     const fi = bar.dataset.fi;
@@ -1504,13 +1790,16 @@
         ['Ctrl+S', 'Opslaan in browser'],
         ['Ctrl+Shift+S', 'Download JSON-bestand'],
         ['Ctrl+N', 'Nieuwe campagne'],
+        ['Ctrl+C', 'Geopende campagne, flight of tactic kopiëren'],
+        ['Ctrl+V', 'Gekopieerd onderdeel plakken'],
         ['Ctrl+E', 'Export CSV'],
         ['Ctrl+T', 'Spring naar huidige week'],
         ['Ctrl+Z', 'Ongedaan maken'],
         ['Ctrl+Y of Ctrl+Shift+Z', 'Opnieuw'],
         ['Shift+klik op bar', 'Toevoegen aan selectie'],
-        ['Delete', 'Verwijder bulk-selectie'],
-        ['Dubbelklik op bar', 'Snelle naam/budget bewerken'],
+        ['Delete of Backspace', 'Verwijder geselecteerde flight / bulkselectie'],
+        ['Klik op campagne/flight', 'Selecteren voor kopiëren'],
+        ['Dubbelklik op campagne/flight', 'Details openen'],
         ['?', 'Toon dit overzicht'],
         ['Esc', 'Sluit modal / wis selectie'],
       ];
@@ -1538,5 +1827,16 @@
       return type === 'text' || type === 'search' || type === 'url' || type === 'email' || type === 'tel' || type === 'password';
     }
     return !!el.isContentEditable;
+  }
+
+  function isClipboardTarget(el) {
+    if (!el) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || !!el.isContentEditable;
+  }
+
+  function hasSelectedPageText() {
+    const selection = window.getSelection && window.getSelection();
+    return !!(selection && !selection.isCollapsed && String(selection).trim());
   }
 })(window.FS = window.FS || {});
