@@ -138,6 +138,7 @@
 
   /** Normaliseert oudere data-formats naar het huidige schema. */
   function normalize(campaigns) {
+    const channelIds = new Set((FS.constants.CHANNELS || []).map((channel) => channel.id));
     // Zorg dat elke campagne een uniek, numeriek id heeft. Bestanden zonder
     // `nextId` (of met dubbele/ontbrekende ids) zouden anders een nieuwe
     // campagne hetzelfde id kunnen geven als een bestaande, waardoor je de
@@ -160,6 +161,7 @@
     }
     campaigns.forEach((camp) => {
       if (camp.budget == null) camp.budget = 0;
+      if (camp.feePlaceholderChannel && !channelIds.has(camp.feePlaceholderChannel)) delete camp.feePlaceholderChannel;
       // Funnel: oud model had 1 fase (camp.funnel). Nieuw model = meerdere
       // (camp.funnels[]). Migreer bestaande waarde eenmalig.
       if (!Array.isArray(camp.funnels)) camp.funnels = camp.funnel ? [camp.funnel] : [];
@@ -170,6 +172,7 @@
         if (f.tc == null) f.tc = 0;
         if (f.ub == null) f.ub = 0;
         if (f.b == null) f.b = 0;
+        if (f.feePlaceholderChannel && !channelIds.has(f.feePlaceholderChannel)) delete f.feePlaceholderChannel;
         if (!Array.isArray(f.funnels)) f.funnels = [];
         if (!f.tac) {
           if (f.ch && Object.keys(f.ch).length) {

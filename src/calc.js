@@ -275,8 +275,17 @@
     });
   }
 
+  function validPlaceholderChannel(channelId) {
+    return typeof channelId === 'string' && FS.constants.CHANNELS.some((channel) => channel.id === channelId);
+  }
+
+  function feePlaceholderChannel(camp, flight) {
+    if (flight && validPlaceholderChannel(flight.feePlaceholderChannel)) return flight.feePlaceholderChannel;
+    return camp && validPlaceholderChannel(camp.feePlaceholderChannel) ? camp.feePlaceholderChannel : '';
+  }
+
   /** Laat componenten exact aansluiten op het officiële scopebudget. */
-  function reconcileComponents(amount, rawComponents, remainderMeta) {
+  function reconcileComponents(amount, rawComponents, remainderMeta, fallbackChannelId) {
     const target = Math.max(0, Number(amount) || 0);
     if (target <= 0) return [];
     const rows = (rawComponents || []).filter((row) => row.amount > 0).map((row) => Object.assign({}, row));
@@ -285,12 +294,12 @@
       const factor = target / rawTotal;
       rows.forEach((row) => { row.amount *= factor; });
     } else if (rawTotal < target) {
-      rows.push(component(remainderMeta || {}, target - rawTotal, '', true));
+      rows.push(component(remainderMeta || {}, target - rawTotal, fallbackChannelId, true));
     }
     return rows;
   }
 
-  function plannedTacticComponents(tactic, meta) {
+  function plannedTacticComponents(tactic, meta, fallbackChannelId) {
     const channels = tactic.ch || {};
     const rows = [];
     let channelTotal = 0;
@@ -301,13 +310,13 @@
       rows.push(component(meta, amount, channelId, false));
     });
     const tacticAmount = Number(tactic.b) > 0 ? Number(tactic.b) : channelTotal;
-    return reconcileComponents(tacticAmount, rows, meta);
+    return reconcileComponents(tacticAmount, rows, meta, fallbackChannelId);
   }
 
-  function actualTacticComponents(tactic, amount, meta) {
+  function actualTacticComponents(tactic, amount, meta, fallbackChannelId) {
     const channels = tactic.ch || {};
     const keys = Object.keys(channels).filter((key) => Number(channels[key]) > 0);
-    if (!keys.length) return amount > 0 ? [component(meta, amount, '', true)] : [];
+    if (!keys.length) return amount > 0 ? [component(meta, amount, fallbackChannelId, true)] : [];
     const weights = keys.map((key) => Number(channels[key]) || 0);
     const totalWeight = weights.reduce((sum, value) => sum + value, 0);
     return keys.map((channelId, index) => component(meta, amount * weights[index] / totalWeight, channelId, false));
@@ -318,14 +327,16 @@
   }
 
   function flightMediaAllocation(campIndex, flightIndex) {
-    const flight = FS.state.campaigns[campIndex].segs[flightIndex];
+    const camp = FS.state.campaigns[campIndex];
+    const flight = camp.segs[flightIndex];
+    const fallbackChannelId = feePlaceholderChannel(camp, flight);
     const actual = flightIsActual(flight);
     const amount = actual ? Math.max(0, Number(flight.actualBudget) || 0) : Math.max(0, flightBudget(flight));
     let rows = [];
     (flight.tac || []).forEach((tactic, tacticIndex) => {
       const meta = { campIndex, flightIndex, tacticIndex };
       if (actual) return;
-      rows = rows.concat(plannedTacticComponents(tactic, meta));
+      rows = rows.concat(plannedTacticComponents(tactic, meta, fallbackChannelId));
     });
     if (actual) {
       const distribution = planFlightActualDistribution(flight, amount);
@@ -335,10 +346,10 @@
       distribution.rows.forEach((row) => {
         rows = rows.concat(actualTacticComponents(row.tactic, row.amount, {
           campIndex, flightIndex, tacticIndex: row.index,
-        }));
+        }, fallbackChannelId));
       });
     }
-    rows = reconcileComponents(amount, rows, { campIndex, flightIndex, tacticIndex: null });
+    rows = reconcileComponents(amount, rows, { campIndex, flightIndex, tacticIndex: null }, fallbackChannelId);
     return { amount, components: rows, status: actual ? 'actual' : 'planned' };
   }
 
@@ -354,7 +365,7 @@
       if (allocation.status === 'actual') actualCount++;
     });
     const amount = Math.max(0, campaignEffective(camp));
-    rows = reconcileComponents(amount, rows, { campIndex, flightIndex: null, tacticIndex: null });
+    rows = reconcileComponents(amount, rows, { campIndex, flightIndex: null, tacticIndex: null }, feePlaceholderChannel(camp));
     const count = (camp.segs || []).length;
     const status = actualCount === 0 ? 'planned' : actualCount === count && count > 0 ? 'actual' : 'forecast';
     return { amount, components: rows, status, invalid: errors.length > 0, error: errors[0] || '' };
@@ -478,24 +489,149 @@
     const components = [];
     let total = 0;
     let baseTotal = 0;
-    FS.state.campaigns.forEach((camp, campIndex) => (camp.segs || []).forEach((flight, flightIndex) => {
-      (flight.tac || []).forEach((tactic, tacticIndex) => {
-        Object.keys(tactic.ch || {}).forEach((channelId) => {
-          const amount = Math.max(0, Number(tactic.ch[channelId]) || 0);
-          if (!amount) return;
-          const fee = channelFee(channelId, amount);
-          baseTotal += amount;
+    FS.state.campaigns.forEach((camp, campIndex) => {
+      (camp.segs || []).forEach((flight, flightIndex) => {
+        (flight.tac || []).forEach((tactic, tacticIndex) => {
+          Object.keys(tactic.ch || {}).forEach((channelId) => {
+            const amount = Math.max(0, Number(tactic.ch[channelId]) || 0);
+            if (!amount) return;
+            const fee = channelFee(channelId, amount);
+            baseTotal += amount;
+            total += fee;
+            components.push({ campIndex, flightIndex, tacticIndex, channelId, unassigned: false, amount, rate: FS.state.fees[channelId] || 0, rawFee: fee, fee });
+          });
+        });
+
+        const allocation = flightMediaAllocation(campIndex, flightIndex);
+        allocation.components.filter((row) => row.unassigned && row.channelId).forEach((row) => {
+          const fee = channelFee(row.channelId, row.amount);
+          baseTotal += row.amount;
           total += fee;
-          components.push({ campIndex, flightIndex, tacticIndex, channelId, unassigned: false, amount, rate: FS.state.fees[channelId] || 0, rawFee: fee, fee });
+          components.push(Object.assign({}, row, { rate: FS.state.fees[row.channelId] || 0, rawFee: fee, fee }));
         });
       });
-    }));
+
+      const campaignAllocation = campaignMediaAllocation(campIndex);
+      campaignAllocation.components.filter((row) => row.unassigned && row.channelId && row.flightIndex == null).forEach((row) => {
+        const fee = channelFee(row.channelId, row.amount);
+        baseTotal += row.amount;
+        total += fee;
+        components.push(Object.assign({}, row, { rate: FS.state.fees[row.channelId] || 0, rawFee: fee, fee }));
+      });
+    });
     return { enabled: false, scope: 'flat', status: 'planned', baseTotal, total, scopes: [], components, errors: [] };
   }
 
   function feeBreakdown() {
     const config = FS.state.feeTiers || (FS.state.defaultFeeTiers && FS.state.defaultFeeTiers()) || { enabled: false };
     return config.enabled ? tierFeeBreakdown(config) : flatFeeBreakdown();
+  }
+
+  function combinedFeeStatus(scopes, fallback) {
+    if (!scopes.length) return fallback || 'planned';
+    if (scopes.every((scope) => scope.status === 'actual')) return 'actual';
+    if (scopes.some((scope) => scope.status === 'actual' || scope.status === 'forecast')) return 'forecast';
+    return 'planned';
+  }
+
+  function summarizeSelectedTiers(config, scopes) {
+    const tiers = validTiers(config);
+    const summaries = [];
+    scopes.forEach((scope) => {
+      if (!scope.tier) return;
+      const index = tiers.findIndex((tier) => tier.id === scope.tier.id);
+      const key = index >= 0 ? String(index) : String(scope.tier.id || 'unknown');
+      let summary = summaries.find((item) => item.key === key);
+      if (!summary) {
+        summary = {
+          key,
+          id: scope.tier.id || '',
+          index: index >= 0 ? index + 1 : 0,
+          upTo: Number(scope.tier.upTo) || 0,
+          rate: Number(scope.tier.rate) || 0,
+          isLast: index >= 0 && index === tiers.length - 1,
+          count: 0,
+          capApplied: false,
+          hasOverrides: Object.keys(scope.tier.channelRates || {}).length > 0,
+        };
+        summaries.push(summary);
+      }
+      summary.count++;
+      summary.capApplied = summary.capApplied || !!(scope.cap && scope.cap.applied);
+    });
+    return summaries.sort((left, right) => left.index - right.index);
+  }
+
+  /** Fee-opbouw voor één campagne of flight. De bedragen volgen dezelfde
+   *  actuals, staffelselectie, kanaalafwijkingen en caps als feeBreakdown(). */
+  function entityFeePreview(camp, flight) {
+    const campIndex = FS.state.campaigns.indexOf(camp);
+    const flightIndex = camp && flight ? (camp.segs || []).indexOf(flight) : null;
+    const mode = feeMode();
+    if (campIndex < 0 || (flight && flightIndex < 0)) {
+      return {
+        enabled: false, scope: 'flat', mode, budget: 0, fee: 0, media: 0, ctc: 0,
+        status: 'planned', tiers: [], selectionBasis: null, errors: [], capApplied: false,
+      };
+    }
+
+    const breakdown = feeBreakdown();
+    const config = FS.state.feeTiers || {};
+    const budget = Math.max(0, flight ? flightEffective(flight) : campaignEffective(camp));
+    let scopes = [];
+    let fee = 0;
+
+    if (breakdown.enabled && breakdown.scope === 'campaign') {
+      const scope = breakdown.scopes.find((item) => item.campIndex === campIndex);
+      if (scope) {
+        scopes = [scope];
+        fee = flight
+          ? scope.components.reduce((sum, row) => sum + (row.flightIndex === flightIndex ? row.fee : 0), 0)
+          : scope.fee;
+      }
+    } else if (breakdown.enabled && breakdown.scope === 'flight') {
+      scopes = breakdown.scopes.filter((scope) => scope.campIndex === campIndex
+        && (flightIndex === null || scope.flightIndex === flightIndex));
+      fee = scopes.reduce((sum, scope) => sum + scope.fee, 0);
+    } else {
+      fee = breakdown.components.reduce((sum, row) => sum + (
+        row.campIndex === campIndex && (flightIndex === null || row.flightIndex === flightIndex) ? row.fee : 0
+      ), 0);
+    }
+
+    const media = mode === 'excl' ? budget : budget - fee;
+    const ctc = mode === 'excl' ? budget + fee : budget;
+    const tierSummaries = breakdown.enabled ? summarizeSelectedTiers(config, scopes) : [];
+    const selectionBasis = breakdown.enabled && scopes.length === 1 ? scopes[0].amount : null;
+    const errors = scopes.filter((scope) => scope.invalid).map((scope) => scope.error).filter(Boolean);
+    const channelRates = {};
+    FS.constants.CHANNELS.forEach((channel) => {
+      if (!breakdown.enabled) {
+        channelRates[channel.id] = Number(FS.state.fees[channel.id]) || 0;
+        return;
+      }
+      const rates = scopes.filter((scope) => scope.tier).map((scope) => rateForComponent(scope.tier, { channelId: channel.id }));
+      channelRates[channel.id] = rates.length && rates.every((rate) => rate === rates[0]) ? rates[0] : null;
+    });
+    const placeholderChannel = feePlaceholderChannel(camp, flight);
+    return {
+      enabled: breakdown.enabled,
+      scope: breakdown.scope,
+      mode,
+      budget,
+      fee,
+      media,
+      ctc,
+      status: combinedFeeStatus(scopes, breakdown.status),
+      tiers: tierSummaries,
+      selectionBasis,
+      errors,
+      capApplied: scopes.some((scope) => scope.cap && scope.cap.applied),
+      placeholderChannel,
+      placeholderSource: flight && validPlaceholderChannel(flight.feePlaceholderChannel) ? 'flight'
+        : validPlaceholderChannel(camp.feePlaceholderChannel) ? 'campaign' : 'default',
+      channelRates,
+    };
   }
 
   function feeForTactic(camp, flight, tactic, breakdown) {
@@ -604,6 +740,7 @@
     feeForTactic,
     allocationForTactic,
     feeBreakdown,
+    entityFeePreview,
     totalFee,
     planFlightActualDistribution,
     applyFlightActualDistribution,

@@ -184,6 +184,92 @@
     );
   }
 
+  function feePctLabel(rate) {
+    const percent = Math.round((Number(rate) || 0) * 10000) / 100;
+    return `${String(percent).replace('.', ',')}%`;
+  }
+
+  function entityFeePreviewHTML(camp, flight) {
+    const preview = FS.calc.entityFeePreview(camp, flight);
+    const isFlight = !!flight;
+    const isExcl = preview.mode === 'excl';
+    const status = preview.status === 'actual' ? 'Actual'
+      : preview.status === 'forecast' ? 'Prognose' : 'Planned';
+    const modeLabel = isExcl ? 'Budget is media' : 'Budget is CTC';
+    const modeNote = isExcl ? 'fee komt erbovenop' : 'fee zit in het budget';
+
+    let tiers = '';
+    if (!preview.enabled) {
+      tiers = `<div class="ef-tier ef-tier-flat"><span>Vaste fee</span><strong>Per kanaal</strong><small>Gebruikt het percentage van het gekozen of ingevulde kanaal</small></div>`;
+    } else if (!preview.tiers.length) {
+      tiers = `<div class="ef-tier ef-tier-empty"><span>Staffel</span><strong>Geen geldige staffel</strong></div>`;
+    } else {
+      tiers = preview.tiers.map((tier) => {
+        const number = tier.index ? `Staffel ${tier.index}` : 'Staffel';
+        const count = preview.scope === 'flight' && !isFlight
+          ? ` · ${tier.count} ${tier.count === 1 ? 'flight' : 'flights'}` : '';
+        const runOn = tier.isLast ? ' · loopt door' : '';
+        const flags = (tier.hasOverrides ? `<em>Kanaalafwijking</em>` : '')
+          + (tier.capApplied ? `<em>Maximum toegepast</em>` : '');
+        return `<div class="ef-tier"><span>${esc(number)}${esc(count)}</span>`
+          + `<strong>${esc(feePctLabel(tier.rate))} basis</strong>`
+          + `<small>t/m ${esc(fC(tier.upTo))}${esc(runOn)}</small>${flags}</div>`;
+      }).join('');
+    }
+
+    let context;
+    if (!preview.enabled) {
+      context = 'Berekend met de ingestelde kanaalpercentages.';
+    } else if (preview.scope === 'campaign') {
+      context = isFlight
+        ? `Campagnestaffel bepaald op ${fC(preview.selectionBasis || 0)}; de fee hieronder is alleen voor deze flight.`
+        : `Staffel bepaald op het campagnebudget van ${fC(preview.selectionBasis || 0)}.`;
+    } else if (isFlight) {
+      context = `Staffel bepaald op het flightbudget van ${fC(preview.selectionBasis || 0)}.`;
+    } else {
+      context = 'Staffel wordt per flight bepaald; hieronder staat het campagnetotaal.';
+    }
+
+    const ownPlaceholder = isFlight ? flight.feePlaceholderChannel || '' : camp.feePlaceholderChannel || '';
+    const campaignPlaceholder = FS.constants.CHANNELS.find((channel) => channel.id === camp.feePlaceholderChannel);
+    const emptyLabel = isFlight
+      ? campaignPlaceholder
+        ? `Campagne volgen — ${campaignPlaceholder.icon} ${campaignPlaceholder.name}`
+        : `Campagne volgen — ${preview.enabled ? 'algemene staffelfee' : 'geen voorlopige fee'}`
+      : preview.enabled ? 'Algemene staffelfee' : 'Geen voorlopige fee';
+    const channelOptions = FS.constants.CHANNELS.map((channel) => {
+      const rate = preview.channelRates[channel.id];
+      const rateLabel = rate == null ? 'varieert per flight' : feePctLabel(rate);
+      return `<option value="${a(channel.id)}"${ownPlaceholder === channel.id ? ' selected' : ''}>`
+        + `${esc(channel.icon)} ${esc(channel.name)} — ${esc(rateLabel)}</option>`;
+    }).join('');
+    const effectiveChannel = FS.constants.CHANNELS.find((channel) => channel.id === preview.placeholderChannel);
+    const effectiveRate = effectiveChannel ? preview.channelRates[effectiveChannel.id] : null;
+    const effectiveLabel = effectiveChannel
+      ? `${effectiveChannel.icon} ${effectiveChannel.name}${effectiveRate == null ? '' : ` · ${feePctLabel(effectiveRate)}`}`
+      : preview.enabled ? 'Algemene staffelfee' : 'Geen voorlopige fee';
+    const placeholder = `<div class="ef-placeholder"><label><span>Voorlopig kanaal</span>`
+      + `<select id="${isFlight ? 'mFfeeChannel' : 'mCfeeChannel'}"><option value="">${esc(emptyLabel)}</option>${channelOptions}</select></label>`
+      + `<small>Effectief: <strong>${esc(effectiveLabel)}</strong>. Alleen voor budget zonder tactic-kanaal; ingevulde tactics blijven leidend.</small></div>`;
+
+    const error = preview.errors.length
+      ? `<div class="ef-error">Fee niet berekend: ${esc(preview.errors[0])}</div>` : '';
+    return `<section class="entity-fee-preview">`
+      + `<div class="ef-head"><div><span class="ef-icon">%</span><div><strong>Handling fee &amp; CTC</strong>`
+      + `<small>${esc(status)} · ${preview.scope === 'campaign' ? 'campagnestaffel' : preview.scope === 'flight' ? 'flightstaffel' : 'kanaalfee'}</small></div></div>`
+      + `<span class="ef-mode ${isExcl ? 'excl' : 'incl'}"><strong>${esc(modeLabel)}</strong><small>${esc(modeNote)}</small></span></div>`
+      + `<div class="ef-tiers">${tiers}</div>`
+      + placeholder
+      + `<div class="ef-context">${esc(context)}</div>${error}`
+      + `<div class="ef-totals">`
+      + `<div><span>Netto media</span><strong>${esc(fC2(preview.media))}</strong></div>`
+      + `<span class="ef-op">+</span>`
+      + `<div><span>Handling fee${isExcl ? ' erbovenop' : ' inbegrepen'}</span><strong>${esc(fC2(preview.fee))}</strong></div>`
+      + `<span class="ef-op">=</span>`
+      + `<div class="ef-ctc"><span>Totaal CTC</span><strong>${esc(fC2(preview.ctc))}</strong></div>`
+      + `</div></section>`;
+  }
+
   /* ------- Campagne-modal ------- */
   function showCampModal(ci) {
     const camp = FS.state.campaigns[ci];
@@ -219,6 +305,7 @@
       + `<div class="mf-field"><label>Kleur</label>${palHTML(camp.col)}</div></div>`;
     h += `<div class="mf-row"><div class="mf-field" style="flex:1"><label>Funnelfases<span class="lbl-help" title="Kies één of meer funnelstappen. Flights en tactics kunnen alleen binnen deze selectie kiezen; leeg = geen beperking.">?</span></label>`
       + funnelChips(camp.funnels, fnIds(), 'mCfunnels') + `</div></div>`;
+    h += entityFeePreviewHTML(camp);
     h += `<div class="mf-actions">`
       + `<button class="mbtn" id="mCup">▲</button>`
       + `<button class="mbtn" id="mCdn">▼</button>`
@@ -326,6 +413,8 @@
       + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFb" type="number" value="${f.b || 0}" step="1000"></span></div>`
       + potFieldHTML
       + `</div>`;
+
+    h += entityFeePreviewHTML(camp, f);
 
     h += `<div class="mf-row">`
       + `<div class="mf-field"><label class="mf-lbl-crea">🎨 Creatie</label>`

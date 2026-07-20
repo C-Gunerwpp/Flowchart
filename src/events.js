@@ -998,6 +998,12 @@
         FS.modals.checkCampBudget(ci, () => FS.modals.showCampModal(ci));
         return;
       }
+      if (el.id === 'mCfeeChannel') {
+        if (el.value) s.campaigns[ci].feePlaceholderChannel = el.value;
+        else delete s.campaigns[ci].feePlaceholderChannel;
+        FS.modals.showCampModal(ci);
+        return;
+      }
       if (el.matches && el.matches('#mCfunnels input[data-fn]')) {
         const camp = s.campaigns[ci];
         if (!Array.isArray(camp.funnels)) camp.funnels = [];
@@ -1065,6 +1071,12 @@
           return;
         }
         if (el.id === 'mFb') { f.b = parseFloat(el.value) || 0; FS.modals.checkCampBudget(ci, re); return; }
+        if (el.id === 'mFfeeChannel') {
+          if (el.value) f.feePlaceholderChannel = el.value;
+          else delete f.feePlaceholderChannel;
+          re();
+          return;
+        }
         if (el.id === 'mFcb') { f.cb = parseFloat(el.value) || 0; re(); return; }
         if (el.id === 'mFtc') { f.tc = parseFloat(el.value) || 0; re(); return; }
         if (el.id === 'mFub') { f.ub = parseFloat(el.value) || 0; re(); return; }

@@ -309,7 +309,7 @@
     const rowFee = (rows) => rows.reduce((sum, row) => sum + row.fee, 0);
     const appendUnassigned = (c, campIndex, f, flightIndex, tactic, tacticIndex) => {
       const rows = allocatedRows(campIndex, flightIndex, tacticIndex).filter((row) => row.unassigned);
-      if (!rows.length) return;
+      if (!rows.length) return false;
       const amount = rowAmount(rows);
       const fee = rowFee(rows);
       const net = ct.mode === 'excl' ? amount : amount - fee;
@@ -320,8 +320,13 @@
         + `<td>${f ? (f.cb || 0) : 0}</td><td>${f ? (f.tc || 0) : 0}</td><td>${f ? (f.ub || 0) : 0}</td>`
         + `<td><em>Niet toegewezen media${tactic && tactic.n ? ` — ${esc(tactic.n)}` : ''}</em></td><td>${amount.toFixed(2)}</td><td>${fee.toFixed(2)}</td><td>${net.toFixed(2)}</td>`
         + `<td>${tactic ? esc(tactic.sd) : f ? esc(f.sd) : ''}</td><td>${tactic ? esc(tactic.ed) : f ? esc(f.ed) : ''}</td>`;
-      channels.forEach(() => { h += `<td></td>`; });
+      channels.forEach((ch) => {
+        const value = rows.filter((row) => row.channelId === ch.id).reduce((sum, row) => sum + row.amount, 0);
+        tCh[ch.id] += value;
+        h += `<td>${value ? value.toFixed(2) : ''}</td>`;
+      });
       h += `</tr>`;
+      return true;
     };
     s.campaigns.forEach((c, campIndex) => {
       c.segs.forEach((f, flightIndex) => {
@@ -329,8 +334,7 @@
         tCb += cb; tTc += tc; tUb += ub;
         if (!f.tac || !f.tac.length) {
           const fb = FS.calc.flightBudget(f);
-          if (feeInfo.enabled) appendUnassigned(c, campIndex, f, flightIndex, null, null);
-          else {
+          if (!appendUnassigned(c, campIndex, f, flightIndex, null, null)) {
             tB += fb;
             h += `<tr><td>${esc(c.brand || '')}</td><td>${esc(c.label)}</td><td>${c.budget || ''}</td><td>${esc(f.n || '')}</td><td>${f.b || ''}</td><td>${esc(st)}</td><td>${cb}</td><td>${tc}</td><td>${ub}</td><td></td><td>${fb}</td><td>0</td><td>${fb}</td><td>${esc(f.sd)}</td><td>${esc(f.ed)}</td>`;
             channels.forEach(() => { h += `<td></td>`; });
@@ -356,12 +360,12 @@
               });
               h += `</tr>`;
             }
-            if (feeInfo.enabled) appendUnassigned(c, campIndex, f, flightIndex, t, tacticIndex);
+            appendUnassigned(c, campIndex, f, flightIndex, t, tacticIndex);
           });
-          if (feeInfo.enabled) appendUnassigned(c, campIndex, f, flightIndex, null, null);
+          appendUnassigned(c, campIndex, f, flightIndex, null, null);
         }
       });
-      if (feeInfo.enabled) appendUnassigned(c, campIndex, null, null, null, null);
+      appendUnassigned(c, campIndex, null, null, null, null);
     });
     if (feeInfo.enabled) { tB = feeInfo.baseTotal; tFe = feeInfo.total; }
     const crT = FS.calc.calcCreatie();

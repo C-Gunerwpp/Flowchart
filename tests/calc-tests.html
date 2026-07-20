@@ -283,6 +283,130 @@
     close(bd.media, 90909.09, 0.01);
     close(bd.ctc, 100000, 0.001);
   });
+  test('campagnepreview toont campagnestaffel en excl. CTC-opbouw', () => {
+    const camp = { id: 1, budget: 80000, segs: [
+      { b: 40000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+      { b: 40000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+    ] };
+    setup([camp]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 50000, rate: 0.1 }, { upTo: 100000, rate: 0.08 }]);
+    const preview = FS.calc.entityFeePreview(camp);
+    eq(preview.mode, 'excl');
+    eq(preview.scope, 'campaign');
+    eq(preview.tiers[0].index, 2);
+    close(preview.selectionBasis, 80000, 0.001);
+    close(preview.fee, 6400, 0.001);
+    close(preview.media, 80000, 0.001);
+    close(preview.ctc, 86400, 0.001);
+  });
+  test('flightpreview deelt campagnestaffel maar toont alleen flightfee', () => {
+    const camp = { id: 1, budget: 80000, segs: [
+      { b: 40000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+      { b: 40000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+    ] };
+    setup([camp]);
+    useExclCtc();
+    useTiers('campaign', [{ upTo: 50000, rate: 0.1 }, { upTo: 100000, rate: 0.08 }]);
+    const preview = FS.calc.entityFeePreview(camp, camp.segs[0]);
+    eq(preview.tiers[0].index, 2);
+    close(preview.selectionBasis, 80000, 0.001);
+    close(preview.budget, 40000, 0.001);
+    close(preview.fee, 3200, 0.001);
+    close(preview.ctc, 43200, 0.001);
+  });
+  test('flightstaffels worden per flight gekozen en op campagne geaggregeerd', () => {
+    const camp = { id: 1, budget: 0, segs: [
+      { b: 40000, tac: [{ b: 40000, ch: { tv: 40000 } }] },
+      { b: 60000, tac: [{ b: 60000, ch: { tv: 60000 } }] },
+    ] };
+    setup([camp]);
+    useExclCtc();
+    useTiers('flight', [{ upTo: 50000, rate: 0.1 }, { upTo: 100000, rate: 0.08 }]);
+    const campaignPreview = FS.calc.entityFeePreview(camp);
+    const firstFlightPreview = FS.calc.entityFeePreview(camp, camp.segs[0]);
+    const secondFlightPreview = FS.calc.entityFeePreview(camp, camp.segs[1]);
+    eq(campaignPreview.tiers.length, 2);
+    eq(campaignPreview.tiers[0].index, 1);
+    eq(campaignPreview.tiers[1].index, 2);
+    close(campaignPreview.fee, 8800, 0.001);
+    close(campaignPreview.ctc, 108800, 0.001);
+    eq(firstFlightPreview.tiers[0].index, 1);
+    close(firstFlightPreview.fee, 4000, 0.001);
+    eq(secondFlightPreview.tiers[0].index, 2);
+    close(secondFlightPreview.fee, 4800, 0.001);
+  });
+  test('entity-preview rekent incl. CTC terug naar netto media', () => {
+    const camp = { id: 1, budget: 110000, segs: [{ b: 110000, tac: [{ b: 110000, ch: { tv: 110000 } }] }] };
+    setup([camp]);
+    useTiers('campaign', [{ upTo: 110000, rate: 0.1 }]);
+    const preview = FS.calc.entityFeePreview(camp);
+    eq(preview.mode, 'incl');
+    close(preview.fee, 10000, 0.001);
+    close(preview.media, 100000, 0.001);
+    close(preview.ctc, 110000, 0.001);
+  });
+  test('vaste fee gebruikt campagne-placeholder als er geen tactics zijn', () => {
+    const camp = { id: 1, budget: 50000, feePlaceholderChannel: 'tv', segs: [] };
+    setup([camp], { tv: 0.1 });
+    useExclCtc();
+    const preview = FS.calc.entityFeePreview(camp);
+    eq(preview.enabled, false);
+    eq(preview.placeholderChannel, 'tv');
+    eq(preview.placeholderSource, 'campaign');
+    close(preview.fee, 5000, 0.001);
+    close(preview.ctc, 55000, 0.001);
+  });
+  test('vaste placeholderfee rekent incl. CTC terug naar media', () => {
+    const camp = { id: 1, budget: 110000, feePlaceholderChannel: 'tv', segs: [] };
+    setup([camp], { tv: 0.1 });
+    const preview = FS.calc.entityFeePreview(camp);
+    eq(preview.mode, 'incl');
+    close(preview.fee, 10000, 0.001);
+    close(preview.media, 100000, 0.001);
+    close(preview.ctc, 110000, 0.001);
+  });
+  test('flight-placeholder overschrijft campagne-placeholder bij vaste fees', () => {
+    const flight = { b: 50000, feePlaceholderChannel: 'social', tac: [] };
+    const camp = { id: 1, budget: 0, feePlaceholderChannel: 'tv', segs: [flight] };
+    setup([camp], { tv: 0.1, social: 0.05 });
+    useExclCtc();
+    const preview = FS.calc.entityFeePreview(camp, flight);
+    eq(preview.placeholderChannel, 'social');
+    eq(preview.placeholderSource, 'flight');
+    close(preview.fee, 2500, 0.001);
+  });
+  test('staffelplaceholder gebruikt kanaalafwijking zonder tactics', () => {
+    const flight = { b: 80000, feePlaceholderChannel: 'tv', tac: [] };
+    const camp = { id: 1, budget: 0, segs: [flight] };
+    setup([camp]);
+    useExclCtc();
+    useTiers('flight', [{ upTo: 100000, rate: 0.08, channelRates: { tv: 0.05 } }]);
+    const preview = FS.calc.entityFeePreview(camp, flight);
+    eq(preview.tiers[0].index, 1);
+    close(preview.channelRates.tv, 0.05, 0.001);
+    close(preview.fee, 4000, 0.001);
+  });
+  test('echte tactic-kanalen blijven leidend boven placeholder', () => {
+    const flight = { b: 80000, feePlaceholderChannel: 'tv', tac: [{ b: 80000, ch: { social: 80000 } }] };
+    const camp = { id: 1, budget: 0, segs: [flight] };
+    setup([camp], { tv: 0.1, social: 0.05 });
+    useExclCtc();
+    const preview = FS.calc.entityFeePreview(camp, flight);
+    close(preview.fee, 4000, 0.001);
+    eq(FS.calc.feeBreakdown().components.some((row) => row.unassigned), false);
+  });
+  test('placeholder vult alleen het niet-toegewezen restant', () => {
+    const flight = { b: 80000, feePlaceholderChannel: 'tv', tac: [{ b: 40000, ch: { social: 40000 } }] };
+    const camp = { id: 1, budget: 0, segs: [flight] };
+    setup([camp], { tv: 0.1, social: 0.05 });
+    useExclCtc();
+    const preview = FS.calc.entityFeePreview(camp, flight);
+    close(preview.fee, 6000, 0.001);
+    const components = FS.calc.feeBreakdown().components;
+    close(components.filter((row) => row.channelId === 'social').reduce((sum, row) => sum + row.amount, 0), 40000, 0.001);
+    close(components.filter((row) => row.channelId === 'tv' && row.unassigned).reduce((sum, row) => sum + row.amount, 0), 40000, 0.001);
+  });
   test('vast maximum is harde cap en start pas boven de drempel', () => {
     setup([{ id: 1, budget: 100000, segs: [{ b: 100000, tac: [{ b: 100000, ch: { tv: 100000 } }] }] }]);
     useExclCtc();
