@@ -255,16 +255,17 @@
     const error = preview.errors.length
       ? `<div class="ef-error">Fee niet berekend: ${esc(preview.errors[0])}</div>` : '';
     return `<section class="entity-fee-preview">`
-      + `<div class="ef-head"><div><span class="ef-icon">%</span><div><strong>Handling fee &amp; CTC</strong>`
-      + `<small>${esc(status)} · ${preview.scope === 'campaign' ? 'campagnestaffel' : preview.scope === 'flight' ? 'flightstaffel' : 'kanaalfee'}</small></div></div>`
-      + `<span class="ef-mode ${isExcl ? 'excl' : 'incl'}"><strong>${esc(modeLabel)}</strong><small>${esc(modeNote)}</small></span></div>`
-      + `<div class="ef-tiers">${tiers}</div>`
-      + placeholder
-      + `<div class="ef-context">${esc(context)}</div>${error}`
+      + `<details class="ef-details"><summary class="ef-head">`
+      + `<span class="ef-head-main"><span class="ef-icon">%</span><span class="ef-title"><strong>Handling fee &amp; CTC</strong>`
+      + `<small>${esc(status)} · ${preview.scope === 'campaign' ? 'campagnestaffel' : preview.scope === 'flight' ? 'flightstaffel' : 'kanaalfee'}</small></span></span>`
+      + `<span class="ef-expand">Fee instellen</span></summary>`
+      + `<div class="ef-detail-body"><span class="ef-mode ${isExcl ? 'excl' : 'incl'}"><strong>${esc(modeLabel)}</strong><small>${esc(modeNote)}</small></span>`
+      + `<div class="ef-tiers">${tiers}</div>${placeholder}`
+      + `<div class="ef-context">${esc(context)}</div></div></details>${error}`
       + `<div class="ef-totals">`
       + `<div><span>Netto media</span><strong>${esc(fC2(preview.media))}</strong></div>`
       + `<span class="ef-op">+</span>`
-      + `<div><span>Handling fee${isExcl ? ' erbovenop' : ' inbegrepen'}</span><strong>${esc(fC2(preview.fee))}</strong></div>`
+      + `<div><span>Handling fee</span><strong>${esc(fC2(preview.fee))}</strong></div>`
       + `<span class="ef-op">=</span>`
       + `<div class="ef-ctc"><span>Totaal CTC</span><strong>${esc(fC2(preview.ctc))}</strong></div>`
       + `</div></section>`;
@@ -405,10 +406,10 @@
     h += `<div class="mf-row">`
       + `<div class="mf-field"><label>Start / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mFsd" type="date" value="${a(f.sd)}" style="width:130px">`
-      + `<input id="mFsw" type="number" value="${dateToWeek(f.sd)}" min="1" max="53" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
+      + `<input id="mFsw" class="mf-week" type="number" value="${dateToWeek(f.sd)}" min="1" max="53"></div></div>`
       + `<div class="mf-field"><label>Eind / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mFed" type="date" value="${a(f.ed)}" style="width:130px">`
-      + `<input id="mFew" type="number" value="${dateToWeek(f.ed)}" min="1" max="53" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
+      + `<input id="mFew" class="mf-week" type="number" value="${dateToWeek(f.ed)}" min="1" max="53"></div></div>`
       + `<div class="mf-field"><label>Budget<span class="lbl-help" title="Laat op 0 staan om automatisch het totaal van de tactics te gebruiken.">?</span></label>`
       + `<span class="cur-wrap"><span class="cur-sym">€</span><input id="mFb" type="number" value="${f.b || 0}" step="1000"></span></div>`
       + potFieldHTML
@@ -550,10 +551,10 @@
     h += `<div class="mf-row">`
       + `<div class="mf-field"><label>Start / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mTsd" type="date" value="${a(t.sd)}" min="${a(f.sd)}" max="${a(f.ed)}" style="width:130px">`
-      + `<input id="mTsw" type="number" value="${dateToWeek(t.sd)}" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div>`
+      + `<input id="mTsw" class="mf-week" type="number" value="${dateToWeek(t.sd)}"></div></div>`
       + `<div class="mf-field"><label>Eind / Week</label><div style="display:flex;gap:4px">`
       + `<input id="mTed" type="date" value="${a(t.ed)}" min="${a(f.sd)}" max="${a(f.ed)}" style="width:130px">`
-      + `<input id="mTew" type="number" value="${dateToWeek(t.ed)}" style="width:52px;text-align:center;background:#EEF2FF;font-weight:700;color:#0026C5"></div></div></div>`;
+      + `<input id="mTew" class="mf-week" type="number" value="${dateToWeek(t.ed)}"></div></div></div>`;
 
     const hasAct = Object.prototype.hasOwnProperty.call(t, 'actual');
     const act = hasAct ? (Number(t.actual) || 0) : 0;

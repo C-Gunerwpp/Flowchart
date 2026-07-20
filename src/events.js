@@ -665,17 +665,25 @@
       let h = `<h5>${esc(camp.label)}</h5>`;
       if (fi !== null && camp.segs[fi]) {
         const f = camp.segs[fi];
-        h += `<div class="tb">${esc(formatCurrency(FS.calc.flightBudget(f)))}</div>`
-          + `<div style="font-weight:600">${esc(f.n || 'Flight')}</div>`
-          + `<div style="opacity:.5;font-size:8px">W${dateToWeek(f.sd)} – W${dateToWeek(f.ed)}</div>`;
-        if (f.cb) h += `<div style="color:#F9A8D4;font-size:8px;margin-top:3px">🎨 ${esc(formatK(f.cb))}</div>`;
-        if (f.tc) h += `<div style="color:#93C5FD;font-size:8px">🔧 ${esc(formatK(f.tc))}</div>`;
+        h += `<div class="tt-budget">${esc(formatCurrency(FS.calc.flightBudget(f)))}</div>`
+          + `<div class="tt-flight">${esc(f.n || 'Flight')}</div>`
+          + `<div class="tt-meta">Week ${dateToWeek(f.sd)} – ${dateToWeek(f.ed)}</div>`;
+        if (f.cb || f.tc) {
+          h += `<div class="tt-costs">`
+            + (f.cb ? `<span class="tt-cost tt-crea">🎨 ${esc(formatK(f.cb))}</span>` : '')
+            + (f.tc ? `<span class="tt-cost tt-tool">🔧 ${esc(formatK(f.tc))}</span>` : '')
+            + `</div>`;
+        }
       }
       ttEl.innerHTML = h;
       ttEl.classList.add('vis');
       const r = bar.getBoundingClientRect();
-      ttEl.style.left = `${Math.min(r.left, window.innerWidth - 330)}px`;
-      ttEl.style.top = `${r.bottom + 8}px`;
+      const left = Math.max(12, Math.min(r.left, window.innerWidth - ttEl.offsetWidth - 12));
+      const below = r.bottom + 8;
+      const top = below + ttEl.offsetHeight <= window.innerHeight - 12
+        ? below : Math.max(12, r.top - ttEl.offsetHeight - 8);
+      ttEl.style.left = `${left}px`;
+      ttEl.style.top = `${top}px`;
     });
 
     gantt.addEventListener('mouseout', (e) => {
