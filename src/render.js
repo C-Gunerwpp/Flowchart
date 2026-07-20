@@ -172,6 +172,7 @@
       tc = '#FFFFFF';
       extraCls = ' g-bar-actual';
     }
+    extraCls += tc.toLowerCase() === '#fff' || tc.toLowerCase() === '#ffffff' ? ' g-txt-light' : ' g-txt-dark';
     if (f.selected) extraCls += ' g-sel';
     const stc = statusColor(status);
     const span = rng.eCol - rng.sCol;
