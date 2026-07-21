@@ -675,6 +675,21 @@
     document.getElementById('settBody').innerHTML = h;
   }
 
+  function campaignCostRows(field) {
+    return FS.state.campaigns.map((camp, campaignIndex) => {
+      const flights = (camp.segs || []).filter((flight) => (Number(flight[field]) || 0) !== 0);
+      const total = flights.reduce((sum, flight) => sum + (Number(flight[field]) || 0), 0);
+      if (!total) return '';
+      const name = camp.label || `Campagne ${campaignIndex + 1}`;
+      const flightLabel = flights.length === 1 ? '1 flight' : `${flights.length} flights`;
+      return `<div class="j-row j-row-auto">`
+        + `<span class="j-sign ${total >= 0 ? 'j-pos' : 'j-neg'}">${total >= 0 ? '+' : '−'}</span>`
+        + `<span class="j-auto-amt">${esc(fC(Math.abs(total)))}</span>`
+        + `<span class="j-auto-name" title="${a(name)}"><strong>${esc(name)}</strong><small>${flightLabel}</small></span>`
+        + `<span class="j-auto-source" title="Automatisch opgeteld uit flights">auto</span></div>`;
+    }).join('');
+  }
+
   /** Budget & kosten — losgekoppeld van de overige instellingen. Beheert het
    *  jaarbudget, creatie, tooling, uren en de handling fees. */
   function renderSettingsBudget() {
@@ -693,19 +708,23 @@
 
     // -- Creatie --
     const totCreatie = FS.calc.totalCreatieFlights();
+    const creatieRows = campaignCostRows('cb');
     h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-cr">🎨</span><h4>Creatie</h4>`
       + `<span class="ss-auto">${esc(fC(totCreatie))} <em>uit flights</em></span></div><div class="ss-body">`;
+    h += creatieRows;
     s.creatieJournal.mods.forEach((m, i) => { h += journalRow('cj', i, m, 100); });
-    if (!s.creatieJournal.mods.length) h += `<div class="ss-empty">Nog geen overige creatiekosten</div>`;
+    if (!creatieRows && !s.creatieJournal.mods.length) h += `<div class="ss-empty">Nog geen creatiekosten</div>`;
     h += `</div><div class="ss-foot"><button class="ss-add sjm-add" data-j="cj">+ Overig creatie</button>`
       + `<span class="ss-tot">Totaal <strong>${esc(fC(totCreatie + FS.calc.calcCreatie()))}</strong></span></div></section>`;
 
     // -- Tooling --
     const totTooling = FS.calc.totalToolingFlights();
+    const toolingRows = campaignCostRows('tc');
     h += `<section class="ss-card"><div class="ss-head"><span class="ss-ic ss-ic-tl">🔧</span><h4>Tooling</h4>`
       + `<span class="ss-auto">${esc(fC(totTooling))} <em>uit flights</em></span></div><div class="ss-body">`;
+    h += toolingRows;
     s.toolingJournal.mods.forEach((m, i) => { h += journalRow('tj', i, m, 100); });
-    if (!s.toolingJournal.mods.length) h += `<div class="ss-empty">Nog geen overige toolingkosten</div>`;
+    if (!toolingRows && !s.toolingJournal.mods.length) h += `<div class="ss-empty">Nog geen toolingkosten</div>`;
     h += `</div><div class="ss-foot"><button class="ss-add sjm-add" data-j="tj">+ Overig tooling</button>`
       + `<span class="ss-tot">Totaal <strong>${esc(fC(totTooling + FS.calc.calcTooling()))}</strong></span></div></section>`;
 

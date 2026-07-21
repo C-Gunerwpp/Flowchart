@@ -1938,3 +1938,21 @@ html[data-theme="light"] .ttip .tt-costs{border-top-color:rgba(40,58,96,.12)}
 html[data-theme="light"] .ttip .tt-crea{color:#be185d}
 html[data-theme="light"] .ttip .tt-tool{color:#1d4ed8}
 
+/* =====================================================================
+   FEEDBACK v50 — campagnekosten in overzicht + toastcontrast
+   ===================================================================== */
+.ss-body .j-row-auto{grid-template-columns:18px 130px minmax(0,1fr) auto}
+.j-auto-amt{display:flex;align-items:center;justify-content:flex-end;min-height:30px;padding:6px 9px;border:1px solid var(--border);border-radius:6px;background:var(--glass-control);color:var(--heading);font-size:12px;font-weight:800;white-space:nowrap}
+.j-auto-name{display:flex;min-width:0;flex-direction:column;gap:1px;color:var(--heading)}
+.j-auto-name strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.j-auto-name small{color:var(--text-3);font-size:8px;font-weight:600}
+.j-auto-source{padding:3px 6px;border:1px solid var(--border);border-radius:10px;background:var(--glass-control);color:var(--text-3);font-size:8px;font-weight:700;text-transform:uppercase}
+html[data-theme="light"] .toast{color:var(--heading)!important}
+html[data-theme="light"] .toast-msg{color:var(--heading)}
+
+@media (max-width:520px){
+   .ss-body .j-row-auto{grid-template-columns:14px 100px minmax(0,1fr);gap:7px}
+   .j-auto-name strong{overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+   .j-auto-source{display:none}
+}
+
