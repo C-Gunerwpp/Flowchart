@@ -599,6 +599,7 @@
     renderSummary();
     renderFilterModal();
     renderLegend();
+    if (FS.finance) FS.finance.render();
     if (FS._refreshRangeUI) FS._refreshRangeUI();
     FS.io.autoSave();
   }

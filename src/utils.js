@@ -136,6 +136,76 @@
     });
   }
 
+  function normalizeFlightFinance(source, prefix) {
+    const raw = source && typeof source === 'object' ? source : {};
+    const poNumbers = [];
+    const usedPoIds = new Set();
+    const poIdMap = new Map();
+    (Array.isArray(raw.poNumbers) ? raw.poNumbers : []).forEach((item, index) => {
+      const row = item && typeof item === 'object' ? item : { value: item };
+      const oldId = row.id == null ? '' : String(row.id);
+      let id = oldId || `${prefix}_po_${index + 1}`;
+      while (usedPoIds.has(id)) id += '_2';
+      usedPoIds.add(id);
+      if (oldId && !poIdMap.has(oldId)) poIdMap.set(oldId, id);
+      poNumbers.push({ id, value: row.value == null ? (row.number == null ? '' : String(row.number)) : String(row.value) });
+    });
+
+    function poIdForReference(reference) {
+      const value = reference == null ? '' : String(reference).trim();
+      if (!value) return '';
+      const existing = poNumbers.find((po) => po.value.trim() === value);
+      if (existing) return existing.id;
+      let id = `${prefix}_po_${poNumbers.length + 1}`;
+      while (usedPoIds.has(id)) id += '_2';
+      usedPoIds.add(id);
+      poNumbers.push({ id, value });
+      return id;
+    }
+
+    const entries = [];
+    const usedEntryIds = new Set();
+    (Array.isArray(raw.entries) ? raw.entries : []).filter((entry) => entry && typeof entry === 'object').forEach((entry, index) => {
+      let id = typeof entry.id === 'string' && entry.id ? entry.id : `${prefix}_entry_${index + 1}`;
+      while (usedEntryIds.has(id)) id += '_2';
+      usedEntryIds.add(id);
+      const requestedPoId = entry.poId == null ? '' : String(entry.poId);
+      const poId = poIdMap.get(requestedPoId) || (usedPoIds.has(requestedPoId) ? requestedPoId : '')
+        || poIdForReference(entry.reference);
+      entries.push({
+        id,
+        type: entry.type === 'credit' ? 'credit' : 'invoice',
+        amount: Math.abs(Number(entry.amount) || 0),
+        date: typeof entry.date === 'string' ? entry.date : '',
+        number: entry.number == null ? '' : String(entry.number),
+        poId,
+      });
+    });
+    const finance = { poNumbers, entries };
+    if (raw.status === 'completed') finance.status = 'completed';
+    if (raw.attention === true && finance.status !== 'completed') finance.attention = true;
+    return finance;
+  }
+
+  function mergeFlightFinance(target, incoming) {
+    const usedPoIds = new Set(target.poNumbers.map((po) => po.id));
+    const poIdMap = new Map();
+    incoming.poNumbers.forEach((po) => {
+      let id = po.id;
+      while (usedPoIds.has(id)) id += '_2';
+      usedPoIds.add(id);
+      poIdMap.set(po.id, id);
+      target.poNumbers.push({ id, value: po.value });
+    });
+    const usedEntryIds = new Set(target.entries.map((entry) => entry.id));
+    incoming.entries.forEach((entry) => {
+      let id = entry.id;
+      while (usedEntryIds.has(id)) id += '_2';
+      usedEntryIds.add(id);
+      target.entries.push(Object.assign({}, entry, { id, poId: poIdMap.get(entry.poId) || '' }));
+    });
+  }
+
   /** Normaliseert oudere data-formats naar het huidige schema. */
   function normalize(campaigns) {
     const channelIds = new Set((FS.constants.CHANNELS || []).map((channel) => channel.id));
@@ -161,17 +231,22 @@
     }
     campaigns.forEach((camp) => {
       if (camp.budget == null) camp.budget = 0;
+      const legacyCampaignCompleted = camp.financeStatus === 'completed';
+      delete camp.financeStatus;
       if (camp.feePlaceholderChannel && !channelIds.has(camp.feePlaceholderChannel)) delete camp.feePlaceholderChannel;
+      const legacyCampaignFinance = camp.finance && typeof camp.finance === 'object' ? camp.finance : null;
+      if (camp.segs && camp.segs.length) delete camp.finance;
       // Funnel: oud model had 1 fase (camp.funnel). Nieuw model = meerdere
       // (camp.funnels[]). Migreer bestaande waarde eenmalig.
       if (!Array.isArray(camp.funnels)) camp.funnels = camp.funnel ? [camp.funnel] : [];
-      (camp.segs || []).forEach((f) => {
+      (camp.segs || []).forEach((f, flightIndex) => {
         if (!f.sd) f.sd = f.s ? weekToDate(f.s) : '2026-01-05';
         if (!f.ed) f.ed = f.e ? weekToDate(f.e) : f.sd;
         if (f.cb == null) f.cb = 0;
         if (f.tc == null) f.tc = 0;
         if (f.ub == null) f.ub = 0;
         if (f.b == null) f.b = 0;
+        f.finance = normalizeFlightFinance(f.finance, `fin_${camp.id}_${flightIndex + 1}`);
         if (f.feePlaceholderChannel && !channelIds.has(f.feePlaceholderChannel)) delete f.feePlaceholderChannel;
         if (!Array.isArray(f.funnels)) f.funnels = [];
         if (!f.tac) {
@@ -192,6 +267,13 @@
         });
         clampTactics(f);
       });
+      if (legacyCampaignFinance && camp.segs && camp.segs.length) {
+        const legacy = normalizeFlightFinance(legacyCampaignFinance, `legacy_${camp.id}`);
+        mergeFlightFinance(camp.segs[0].finance, legacy);
+      }
+      if (legacyCampaignCompleted) {
+        (camp.segs || []).forEach((flight) => { flight.finance.status = 'completed'; });
+      }
     });
   }
 

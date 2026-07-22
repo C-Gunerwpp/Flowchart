@@ -25,6 +25,7 @@
 <script src="../src/state.js"></script>
 <script src="../src/utils.js"></script>
 <script src="../src/calc.js"></script>
+<script src="../src/finance.js"></script>
 <script>
 (function () {
   const results = [];
@@ -143,6 +144,177 @@
       { budget: 5000, segs: [{ tac: [{ b: 100 }] }] },
     ]);
     eq(FS.calc.grandTotal(), 6000);
+  });
+
+  /* ============ financeActual ============ */
+  group('financeActual');
+  test('flight actual gebruikt nooit planning als fallback', () => {
+    eq(FS.calc.flightActual({ b: 100, actualized: false }), 0);
+    eq(FS.calc.flightActual({ b: 100, actualized: true, actualBudget: 80 }), 80);
+  });
+  test('actual bevat alleen expliciet geactualiseerde flights', () => {
+    const camp = { segs: [
+      { b: 100, actualized: true, actualBudget: 80 },
+      { b: 100, actualized: false },
+    ] };
+    eq(FS.calc.campaignActual(camp), 80);
+  });
+  test('actual telt ook een expliciete nulwaarde mee als nul', () => {
+    const camp = { segs: [{ b: 100, actualized: true, actualBudget: 0 }] };
+    eq(FS.calc.campaignActual(camp), 0);
+  });
+  test('campagne zonder actuals heeft actual nul', () => {
+    const camp = { segs: [{ b: 100 }, { tac: [{ b: 50 }] }] };
+    eq(FS.calc.campaignActual(camp), 0);
+  });
+  test('facturen minus credits vormen het gefactureerde totaal', () => {
+    const flight = { finance: { entries: [
+      { type: 'invoice', amount: 120 },
+      { type: 'invoice', amount: 30 },
+      { type: 'credit', amount: 25 },
+    ] } };
+    eq(FS.finance.invoiceTotal(flight), 125);
+  });
+  test('flightfacturatie sluit exact aan op actual tot op centen', () => {
+    const flight = {
+      b: 100, actualized: true, actualBudget: 0.3,
+      finance: { entries: [{ type: 'invoice', amount: 0.1 }, { type: 'invoice', amount: 0.2 }] },
+    };
+    const camp = { id: 1, segs: [flight] };
+    const snapshot = FS.finance.flightSnapshot(camp, flight, 0);
+    eq(snapshot.difference, 0);
+    eq(snapshot.billingState, 'matched');
+  });
+  test('te veel gefactureerd op een flight wordt als over gemarkeerd', () => {
+    const flight = {
+      b: 100, actualized: true, actualBudget: 80,
+      finance: { entries: [{ type: 'invoice', amount: 100 }] },
+    };
+    const snapshot = FS.finance.flightSnapshot({ id: 1, segs: [flight] }, flight, 0);
+    eq(snapshot.difference, -20);
+    eq(snapshot.billingState, 'over');
+  });
+  test('campagnesamenvatting scheidt automatisch en handmatig werk', () => {
+    const camp = { id: 1, segs: [
+      { b: 100, actualized: true, actualBudget: 80, finance: { status: 'completed', entries: [{ type: 'invoice', amount: 80 }] } },
+      { b: 100, actualized: true, actualBudget: 80, finance: { entries: [{ type: 'invoice', amount: 60 }] } },
+      { sd: '2099-01-01', ed: '2099-02-01', b: 100, finance: { attention: true, entries: [] } },
+    ] };
+    const snapshot = FS.finance.campaignSnapshot(camp);
+    eq(snapshot.reconciledCount, 1);
+    eq(snapshot.completedCount, 1);
+    eq(snapshot.readyCount, 1);
+    eq(snapshot.attentionCount, 1);
+  });
+  test('flight is alleen afgerond met expliciete finance-status', () => {
+    const flight = { b: 100, finance: { entries: [], poNumbers: [] } };
+    const camp = { id: 2, segs: [flight] };
+    eq(FS.finance.flightSnapshot(camp, flight, 0).completed, false);
+    flight.finance.status = 'completed';
+    eq(FS.finance.flightSnapshot(camp, flight, 0).completed, true);
+  });
+  test('toekomstige flight is gepland en vraagt standaard geen aandacht', () => {
+    const flight = { sd: '2099-01-01', ed: '2099-02-01', b: 100, finance: { entries: [], poNumbers: [] } };
+    const snapshot = FS.finance.flightSnapshot({ id: 3, segs: [flight] }, flight, 0);
+    eq(snapshot.billingState, 'planned');
+    eq(snapshot.attention, false);
+  });
+  test('afgelopen flight zonder actual wacht automatisch op actual', () => {
+    const flight = { sd: '2000-01-01', ed: '2000-01-02', b: 100, finance: { entries: [], poNumbers: [] } };
+    const snapshot = FS.finance.flightSnapshot({ id: 4, segs: [flight] }, flight, 0);
+    eq(snapshot.billingState, 'awaiting-actual');
+    eq(snapshot.attention, false);
+  });
+  test('gestarte niet-afgelopen flight staat automatisch op loopt', () => {
+    const flight = { sd: '2000-01-01', ed: '2099-02-01', b: 100, finance: { entries: [], poNumbers: [] } };
+    const snapshot = FS.finance.flightSnapshot({ id: 41, segs: [flight] }, flight, 0);
+    eq(snapshot.billingState, 'running');
+    eq(snapshot.attention, false);
+  });
+  test('geactualiseerde open flight is klaar om te factureren', () => {
+    const flight = { b: 100, actualized: true, actualBudget: 80, finance: { entries: [], poNumbers: [] } };
+    const snapshot = FS.finance.flightSnapshot({ id: 5, segs: [flight] }, flight, 0);
+    eq(snapshot.billingState, 'ready');
+    eq(snapshot.attention, false);
+  });
+  test('factuur zonder actual krijgt automatisch een afwijkingslabel', () => {
+    const flight = { sd: '2099-01-01', ed: '2099-02-01', b: 100, finance: {
+      entries: [{ type: 'invoice', amount: 25 }], poNumbers: [],
+    } };
+    const snapshot = FS.finance.flightSnapshot({ id: 51, segs: [flight] }, flight, 0);
+    eq(snapshot.billingState, 'billed-before-actual');
+    eq(snapshot.attention, false);
+  });
+  test('oude flight krijgt bij normalisatie een lege finance-administratie', () => {
+    const campaigns = [{ id: 71, budget: 0, segs: [{ sd: '2026-01-01', ed: '2026-01-02' }] }];
+    FS.utils.normalize(campaigns);
+    eq(Array.isArray(campaigns[0].segs[0].finance.poNumbers), true);
+    eq(campaigns[0].segs[0].finance.entries.length, 0);
+  });
+  test('normalisatie behoudt meerdere PO/ID nummers en koppelt boekingen', () => {
+    const campaigns = [{ id: 72, budget: 0, segs: [{ sd: '2026-01-01', ed: '2026-01-02', finance: {
+      poNumbers: [{ id: 'po_a', value: 1583480 }, { id: 'po_b', value: 'PO-88' }],
+      entries: [
+        { id: 'dup', type: 'credit', amount: -12.34, number: 299550, poId: 'po_a' },
+        { id: 'dup', type: 'invoice', amount: 10, poId: 'po_b' },
+      ],
+    } }] }];
+    FS.utils.normalize(campaigns);
+    const finance = campaigns[0].segs[0].finance;
+    const entries = finance.entries;
+    eq(entries[0].amount, 12.34);
+    eq(entries[0].number, '299550');
+    eq(finance.poNumbers.length, 2);
+    eq(finance.poNumbers.find((po) => po.id === entries[0].poId).value, '1583480');
+    eq(finance.poNumbers.find((po) => po.id === entries[1].poId).value, 'PO-88');
+    eq(entries[0].id === entries[1].id, false);
+  });
+  test('oude vrije factuurreferentie wordt een flight PO/ID', () => {
+    const campaigns = [{ id: 73, segs: [{ sd: '2026-01-01', ed: '2026-01-02', finance: {
+      entries: [{ type: 'invoice', amount: 50, reference: 123456 }],
+    } }] }];
+    FS.utils.normalize(campaigns);
+    const finance = campaigns[0].segs[0].finance;
+    eq(finance.poNumbers[0].value, '123456');
+    eq(finance.entries[0].poId, finance.poNumbers[0].id);
+  });
+  test('oude campagneboekingen migreren zonder verlies naar de eerste flight', () => {
+    const campaigns = [{ id: 74, finance: { entries: [{ type: 'invoice', amount: 75, reference: 'OLD-PO' }] },
+      segs: [{ sd: '2026-01-01', ed: '2026-01-02' }] }];
+    FS.utils.normalize(campaigns);
+    const finance = campaigns[0].segs[0].finance;
+    eq(finance.entries[0].amount, 75);
+    eq(finance.poNumbers[0].value, 'OLD-PO');
+    eq(campaigns[0].finance, undefined);
+  });
+  test('normalisatie bewaart alleen geldige flight afgerond-status', () => {
+    const campaigns = [{ id: 75, segs: [
+      { sd: '2026-01-01', ed: '2026-01-02', finance: { status: 'completed' } },
+      { sd: '2026-01-01', ed: '2026-01-02', finance: { status: 'klaar' } },
+    ] }];
+    FS.utils.normalize(campaigns);
+    eq(campaigns[0].segs[0].finance.status, 'completed');
+    eq(campaigns[0].segs[1].finance.status, undefined);
+  });
+  test('normalisatie bewaart handmatige aandacht los van afgerond', () => {
+    const campaigns = [{ id: 77, segs: [
+      { sd: '2026-01-01', ed: '2026-01-02', finance: { attention: true } },
+      { sd: '2026-01-01', ed: '2026-01-02', finance: { attention: true, status: 'completed' } },
+    ] }];
+    FS.utils.normalize(campaigns);
+    eq(campaigns[0].segs[0].finance.attention, true);
+    eq(campaigns[0].segs[1].finance.attention, undefined);
+    eq(campaigns[0].segs[1].finance.status, 'completed');
+  });
+  test('oude campagne afgerond-status migreert naar alle flights', () => {
+    const campaigns = [{ id: 76, financeStatus: 'completed', segs: [
+      { sd: '2026-01-01', ed: '2026-01-02' },
+      { sd: '2026-01-01', ed: '2026-01-02' },
+    ] }];
+    FS.utils.normalize(campaigns);
+    eq(campaigns[0].segs[0].finance.status, 'completed');
+    eq(campaigns[0].segs[1].finance.status, 'completed');
+    eq(campaigns[0].financeStatus, undefined);
   });
 
   /* ============ channelFee ============ */

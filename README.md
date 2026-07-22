@@ -1,6 +1,6 @@
 # Flowchart Studio
 
-Flowchart Studio is een browsergebaseerde planningstool voor mediastrategieën. De app helpt bij het plannen van campagnes, flights en tactics inclusief budget, kanalen, creatie- en toolingkosten.
+Flowchart Studio is een browsergebaseerde planningstool voor mediastrategieën. De app helpt bij het plannen van campagnes, flights en tactics inclusief budget, kanalen, creatie- en toolingkosten en financiële aansluiting.
 
 ## Wat is nieuw in deze repository
 
@@ -13,6 +13,7 @@ Flowchart Studio is een browsergebaseerde planningstool voor mediastrategieën. 
   - `calc.js` — pure budget- en fee-berekeningen.
   - `render.js` — Gantt, summary en legend.
   - `modals.js` — campagne-, flight-, tactic- en settings-modals.
+  - `finance.js` — facturen, credits en PO/ID-aansluiting per flight.
   - `io.js` — autosave (debounced), JSON save/load, CSV en XLS export.
   - `events.js` — event-bindings en bootstrap.
 - `package.json` — projectmetadata en scripts.
@@ -66,7 +67,20 @@ npm run format
 2. Begin met `Nieuw` voor een frisse planning of laad een bestaande `.json` file.
 3. Voeg campagnes, flights en tactics toe.
 4. Pas kanalen, budgetten en metrics aan in de modalinterfaces.
-5. Exporteer naar JSON, CSV, XLS of print direct naar PDF.
+5. Open **Finance** om actuals per flight aan facturen, credits en PO/ID-nummers te koppelen.
+6. Exporteer naar JSON, CSV, XLS of print direct naar PDF.
+
+### Finance
+
+Het tabblad **Finance** groepeert flights per campagne. Iedere flight toont afzonderlijk **Planned**, **Actual**, **Gefactureerd** en het resterende **Verschil**.
+
+- Actual bevat uitsluitend flights die expliciet zijn geactualiseerd; open flights worden hier niet met hun planning aangevuld.
+- Iedere flight kan één of meerdere PO/ID-nummers hebben.
+- Een flight kan meerdere facturen en credits bevatten, elk met datum, bedrag, factuurnummer en een keuze uit de PO/ID-nummers van die flight.
+- Credits worden van het gefactureerde totaal afgetrokken. De aansluiting is gereed wanneer het verschil met Actual exact `€0,00` is.
+- Campagnes kunnen in Finance worden ingeklapt. Automatische labels tonen **Gepland**, **Loopt**, **Wacht op actual**, **Klaar om te factureren**, **Aansluitend** of een facturatie-afwijking.
+- **Vraagt aandacht** is een aparte handmatige markering voor uitzonderingen; **Afgerond** is eveneens handmatig. De filters **Alles**, **Vraagt aandacht** en **Afgerond** werken op deze handmatige flightstatussen.
+- Factuurdata wordt samen met de flight opgeslagen in browseropslag, gedownloade JSON-plannen en lokale versiesnapshots.
 
 ### Handling-feestaffels
 

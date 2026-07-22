@@ -147,6 +147,17 @@
     return campaignEffectiveSum(camp);
   }
 
+  /** Werkelijk ingevoerde flight-actual, zonder planning als fallback. */
+  function flightActual(flight) {
+    if (!flight || !flight.actualized || flight.actualBudget == null) return 0;
+    return Number(flight.actualBudget) || 0;
+  }
+
+  /** Campagnetotaal van uitsluitend expliciet geactualiseerde flights. */
+  function campaignActual(camp) {
+    return (camp.segs || []).reduce((total, flight) => total + flightActual(flight), 0);
+  }
+
   function grandTotalActual() {
     return FS.state.campaigns.reduce((a, c) => a + campaignEffective(c), 0);
   }
@@ -732,6 +743,8 @@
     flightEffective,
     campaignEffectiveSum,
     campaignEffective,
+    flightActual,
+    campaignActual,
     grandTotalActual,
     channelSum,
     feeFromRate,

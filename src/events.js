@@ -195,6 +195,7 @@
     const copy = cloneEntity(entityClipboard.data);
     copy.id = allocateCampaignId();
     copy.label = `${copy.label || 'Campagne'} (kopie)`;
+    (copy.segs || []).forEach((flight) => { flight.finance = { poNumbers: [], entries: [] }; });
     moveEntityToNextWeek('campaign', copy);
     FS.modals.clampFunnelHierarchy(copy);
 
@@ -227,6 +228,7 @@
       return;
     }
     const copy = cloneEntity(entityClipboard.data);
+    copy.finance = { poNumbers: [], entries: [] };
     moveEntityToNextWeek('flight', copy);
     const insertAt = s.selectedFlight !== null ? s.selectedFlight + 1 : camp.segs.length;
     camp.segs.splice(insertAt, 0, copy);
@@ -593,7 +595,7 @@
           const n = (camp.segs && camp.segs.length) || 0;
           camp.segs.push({
             n: `Flight ${n + 1}`, sd: FS.utils.today(), ed: FS.utils.today(),
-            b: 0, cb: 0, tc: 0, col: '', st: 'concept', nt: '', tac: [],
+            b: 0, cb: 0, tc: 0, col: '', st: 'concept', nt: '', tac: [], finance: { poNumbers: [], entries: [] },
           });
           FS.render.render();
           if (FS.io && FS.io.autoSave) FS.io.autoSave();
@@ -839,7 +841,9 @@
         return;
       }
       if (id === 'mFdup' && s.selectedFlight !== null) {
-        s.campaigns[ci].segs.push(JSON.parse(JSON.stringify(s.campaigns[ci].segs[s.selectedFlight])));
+        const copy = JSON.parse(JSON.stringify(s.campaigns[ci].segs[s.selectedFlight]));
+        copy.finance = { poNumbers: [], entries: [] };
+        s.campaigns[ci].segs.push(copy);
         FS.modals.checkCampBudget(ci, () => FS.modals.showCampModal(ci));
         return;
       }
@@ -861,6 +865,7 @@
         copy.id = s.nextId++;
         copy.label += ' (kopie)';
         copy.col = C.PALETTE[(ci + 4) % C.PALETTE.length];
+        (copy.segs || []).forEach((flight) => { flight.finance = { poNumbers: [], entries: [] }; });
         s.campaigns.splice(ci + 1, 0, copy);
         FS.modals.closeModal();
         return;
@@ -1489,6 +1494,7 @@
         const key = e.key.toLowerCase();
         if ((key === 'c' || key === 'v') && !e.shiftKey) {
           if (isClipboardTarget(e.target)) return;
+          if (FS.finance && FS.finance.isActive()) return;
           if (key === 'c' && hasSelectedPageText()) return;
           const handled = key === 'c' ? copySelectedEntity() : pasteCopiedEntity();
           if (handled) e.preventDefault();
@@ -1545,6 +1551,7 @@
       }
       // Delete / Backspace: bulkselectie of de enkel geselecteerde Gantt-flight.
       if ((e.key === 'Delete' || e.key === 'Backspace') && !isClipboardTarget(e.target)) {
+        if (FS.finance && FS.finance.isActive()) return;
         if (bulkSelection.size > 0) {
           e.preventDefault();
           bulkDeleteSelection();
@@ -1602,6 +1609,7 @@
 
     if (FS.io.hasLocal()) document.getElementById('wr').classList.add('sh');
     if (FS.ganttInteract) FS.ganttInteract.init();
+    if (FS.finance) FS.finance.init();
 
     // Vandaag-lijn herpositioneren bij venster-resize
     let nowLineResizeT = null;

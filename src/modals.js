@@ -942,6 +942,7 @@
   function addFlight(ci) {
     FS.state.campaigns[ci].segs.push({
       n: '', sd: today(), ed: today(), b: 0, cb: 0, tc: 0, ub: 0, col: '', st: 'concept', nt: '', tac: [], funnels: [],
+      finance: { poNumbers: [], entries: [] },
     });
     showCampModal(ci);
   }
