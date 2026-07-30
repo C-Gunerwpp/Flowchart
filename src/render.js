@@ -274,7 +274,7 @@
     const selected = camp.id === FS.state.selectedCamp && FS.state.selectedFlight === null;
     const lockIc = camp.locked ? `<span style="margin-left:4px;font-size:10px" title="Vergrendeld">🔒</span>` : '';
     const fnBadge = campFunnels(camp).map((id) => funnelStageInfo(id)).filter(Boolean).map((fst) =>
-      `<span class="g-funnel-bd" style="background:${a(fst.color)}" title="${a(fst.name)}">${fst.icon ? a(fst.icon) : a((fst.name || '?').slice(0, 1).toUpperCase())}</span>`,
+      `<span class="g-funnel-bd" style="background:${a(fst.color)}" title="${a(fst.name)}"></span>`,
     ).join('');
     return `<div class="g-row g-camp${isExp ? ' g-exp' : ''}${selected ? ' g-sel' : ''}" data-ci="${a(camp.id)}">`
       + `<div class="g-label">`
@@ -523,7 +523,7 @@
 
     // Funnelfase
     const fnChips = FS.state.funnelStages.map((st) =>
-      gfChip('funnel', st.id, `${st.icon ? esc(st.icon) + ' ' : ''}${esc(st.name)}`, isFunnelVisible(st.id), st.color),
+      gfChip('funnel', st.id, esc(st.name), isFunnelVisible(st.id), st.color),
     ).join('') + gfChip('funnel', '', 'Geen funnelfase', isFunnelVisible(''), '#94A3B8');
     h += gfSection('🪜 Funnelfase', 'funnel', !funnelFilter, fnChips);
 

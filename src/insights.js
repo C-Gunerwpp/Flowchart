@@ -648,7 +648,7 @@
   function funnelChart() {
     const totals = aggregateFunnel();
     const entries = FS.state.funnelStages.map((st) => ({
-      label: `${st.icon ? st.icon + ' ' : ''}${st.name}`, value: totals[st.id] || 0, color: st.color,
+      label: st.name, value: totals[st.id] || 0, color: st.color,
     }));
     entries.push({ label: '— Geen funnelfase —', value: totals[''] || 0, color: '#94A3B8' });
     return barList(entries);
@@ -909,7 +909,7 @@
     const funnelBoxes = FS.state.funnelStages.map((st) => {
       const on = filters.funnel.has(st.id);
       const bg = on ? `background:${esc(st.color)};color:#fff;border-color:${esc(st.color)};` : '';
-      return `<label class="ins-funnel${on ? '' : ' off'}" style="${bg}"><input type="checkbox" data-fn="${esc(st.id)}"${on ? ' checked' : ''} style="display:none"> ${st.icon ? esc(st.icon) + ' ' : ''}${esc(st.name)}</label>`;
+      return `<label class="ins-funnel${on ? '' : ' off'}" style="${bg}"><input type="checkbox" data-fn="${esc(st.id)}"${on ? ' checked' : ''} style="display:none"> ${esc(st.name)}</label>`;
     }).join('');
     const noneOn = filters.funnel.has('');
     const funnelNone = `<label class="ins-funnel${noneOn ? '' : ' off'}"><input type="checkbox" data-fn=""${noneOn ? ' checked' : ''} style="display:none"> — geen —</label>`;

@@ -229,9 +229,24 @@
     }
   }
 
-  function zoomIn() { zoom = Math.min(ZOOM_MAX, Math.round((zoom + ZOOM_STEP) * 100) / 100); applyZoom(); }
-  function zoomOut() { zoom = Math.max(ZOOM_MIN, Math.round((zoom - ZOOM_STEP) * 100) / 100); applyZoom(); }
-  function zoomReset() { zoom = 1; applyZoom(); }
+  function zoomIn() { zoom = Math.min(ZOOM_MAX, Math.round((zoom + ZOOM_STEP) * 100) / 100); applyZoom(); saveZoom(); }
+  function zoomOut() { zoom = Math.max(ZOOM_MIN, Math.round((zoom - ZOOM_STEP) * 100) / 100); applyZoom(); saveZoom(); }
+  function zoomReset() { zoom = 1; applyZoom(); saveZoom(); }
+
+  /** Zoomniveau uitlezen/zetten voor het bewaren van de weergavestand. */
+  function getZoom() { return zoom; }
+  function setZoom(value) {
+    const z = Number(value);
+    if (!Number.isFinite(z)) return;
+    zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(z * 100) / 100));
+    applyZoom();
+  }
+
+  /** Zoom hoort bij de bewaarde weergave; render() draait hier niet, dus
+   *  expliciet autosaven. */
+  function saveZoom() {
+    if (FS.io && FS.io.autoSave) FS.io.autoSave();
+  }
 
   /** Scroll de gantt horizontaal zodat de huidige week in beeld is. */
   function scrollToNow() {
@@ -263,5 +278,5 @@
     wrap.scrollTo({ left: target, behavior: 'smooth' });
   }
 
-  FS.ganttInteract = { init, applyZoom, zoomIn, zoomOut, zoomReset, scrollToNow };
+  FS.ganttInteract = { init, applyZoom, zoomIn, zoomOut, zoomReset, getZoom, setZoom, scrollToNow };
 })(window.FS = window.FS || {});

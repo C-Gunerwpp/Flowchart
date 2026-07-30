@@ -13,7 +13,8 @@
   const MIN_MONTHS = 3;
   const MAX_MONTHS = 24;
 
-  // Mutable view-state. Niet onderdeel van saved JSON: dit is puur UI-state.
+  // Mutable view-state. Wordt meegeschreven in localStorage en JSON (`view`)
+  // zodat een plan opent op dezelfde maandrange als waarin het bewaard is.
   const view = {
     startYear: null,
     startMonth: 0, // 0..11
@@ -157,7 +158,10 @@
 
   function set(partial) {
     if (!partial) return;
-    if (partial.startYear != null) view.startYear = parseInt(partial.startYear, 10);
+    if (partial.startYear != null) {
+      const y = parseInt(partial.startYear, 10);
+      if (Number.isFinite(y)) view.startYear = y;
+    }
     if (partial.startMonth != null) view.startMonth = clampInt(partial.startMonth, 0, 11);
     if (partial.monthCount != null) view.monthCount = clampInt(partial.monthCount, MIN_MONTHS, MAX_MONTHS);
     invalidate();

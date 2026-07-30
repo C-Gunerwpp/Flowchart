@@ -48,10 +48,9 @@
     const sel = new Set(selected || []);
     return `<div class="fn-picker" id="${groupId}">` + stages.map((st) => {
       const on = sel.has(st.id);
-      const ic = st.icon ? `${esc(st.icon)} ` : '';
       return `<label class="fn-chip${on ? ' on' : ''}"${on ? ` style="background:${a(st.color)}"` : ''}>`
         + `<input type="checkbox" data-fn="${a(st.id)}"${on ? ' checked' : ''}>`
-        + `<span class="fn-chip-dot" style="background:${a(st.color)}"></span>${ic}${esc(st.name)}</label>`;
+        + `<span class="fn-chip-dot" style="background:${a(st.color)}"></span>${esc(st.name)}</label>`;
     }).join('') + `</div>`;
   }
 
@@ -488,7 +487,11 @@
           + `<div class="m-item-meta"><span>${esc(fK(t.b))}</span>`
           + `<span>W${dateToWeek(t.sd)}–W${dateToWeek(t.ed)}</span>`
           + `<span>${esc(chs.join(', ') || '–')}</span></div></div>`
-          + `<div style="color:#C5CAE9;font-size:18px">›</div></div>`;
+          + `<div class="m-item-mv" title="Volgorde in de Gantt wijzigen">`
+          + `<button type="button" class="m-mv" data-mv="up" data-ti="${ti}" title="Naar boven"${ti === 0 ? ' disabled' : ''}>▲</button>`
+          + `<button type="button" class="m-mv" data-mv="down" data-ti="${ti}" title="Naar beneden"${ti === f.tac.length - 1 ? ' disabled' : ''}>▼</button>`
+          + `</div>`
+          + `<div class="m-item-chev">›</div></div>`;
       });
     }
 
@@ -545,7 +548,7 @@
       + `<div class="mf-field"><label>Funnelstap<span class="lbl-help" title="Één stap, binnen de selectie van de flight/campagne. Leeg = volgt de flight/campagne.">?</span></label>`
       + `<select id="mTfunnel"><option value="">— geen —</option>`
       + fnStages().filter((st) => allowT.includes(st.id)).map((st) =>
-        `<option value="${a(st.id)}"${t.funnel === st.id ? ' selected' : ''}>${st.icon ? esc(st.icon) + ' ' : ''}${esc(st.name)}</option>`).join('')
+        `<option value="${a(st.id)}"${t.funnel === st.id ? ' selected' : ''}>${esc(st.name)}</option>`).join('')
       + `</select></div></div>`;
 
     h += `<div class="mf-row">`

@@ -2219,3 +2219,38 @@ html[data-theme="dark"] .fin-complete-toggle.on{color:#34d399}
    .fin-campaign{break-inside:avoid;box-shadow:none}
 }
 
+/* ============================================================
+   FEEDBACK v52 — funnelkleuren zonder iconen + tactic-volgorde
+   ============================================================ */
+
+/* Funnelbadge in de Gantt is puur een kleurstip (geen icoon/letter meer). */
+.g-funnel-bd{
+   width:10px;
+   height:10px;
+   margin-left:5px;
+   font-size:0;
+   line-height:0;
+   border-width:1.5px;
+}
+
+/* Volgordeknoppen in de tacticlijst van de flight-modal. */
+.m-item-mv{display:flex;flex-direction:column;gap:2px;margin-right:8px;flex-shrink:0}
+.m-item-mv .m-mv{
+   display:flex;
+   align-items:center;
+   justify-content:center;
+   width:20px;
+   height:15px;
+   padding:0;
+   border:1px solid var(--glass-border,var(--border));
+   border-radius:4px;
+   background:var(--glass-control,var(--surface-2));
+   color:var(--text-2);
+   font-family:inherit;
+   font-size:7px;
+   line-height:1;
+   cursor:pointer;
+}
+.m-item-mv .m-mv:hover:not(:disabled){border-color:var(--primary);color:var(--primary)}
+.m-item-mv .m-mv:disabled{opacity:.3;cursor:default}
+.m-item-chev{color:var(--text-3);font-size:18px;line-height:1}

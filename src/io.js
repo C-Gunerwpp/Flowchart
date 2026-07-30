@@ -7,6 +7,41 @@
 
   const { escapeHtml: esc, debounce, normalize } = FS.utils;
 
+  /* ------- Weergavestand (zichtbare maandrange + zoom) -------
+   * De Gantt-weergave is werkstand, geen plandata, maar hoort wél bij een plan:
+   * wie een jaarplan opent wil op dezelfde maanden en zoom uitkomen als waar
+   * hij gebleven was. Daarom rijdt de stand mee in localStorage én in de JSON. */
+  function viewSnapshot() {
+    if (!FS.viewport || !FS.viewport.get) return null;
+    const v = FS.viewport.get();
+    const out = {
+      startYear: v.startYear,
+      startMonth: v.startMonth,
+      monthCount: v.monthCount,
+    };
+    if (FS.ganttInteract && FS.ganttInteract.getZoom) out.zoom = FS.ganttInteract.getZoom();
+    return out;
+  }
+
+  /** Zet een bewaarde weergavestand terug. Zonder (of met onbruikbare) stand
+   *  valt de viewport terug op het volledige jaar en zoom 100%. */
+  function applyViewSnapshot(view, fallbackYear) {
+    const valid = view && typeof view === 'object' && Number.isFinite(Number(view.startYear));
+    if (!FS.viewport) return;
+    if (valid) {
+      FS.viewport.set({
+        startYear: view.startYear,
+        startMonth: view.startMonth,
+        monthCount: view.monthCount,
+      });
+    } else if (FS.viewport.resetToYear) {
+      FS.viewport.resetToYear(fallbackYear);
+    }
+    if (FS.ganttInteract && FS.ganttInteract.setZoom) {
+      FS.ganttInteract.setZoom(valid && Number.isFinite(Number(view.zoom)) ? view.zoom : 1);
+    }
+  }
+
   /** Werkelijk schrijven naar localStorage; aanroepen via debounced autoSave. */
   function writeLocal() {
     const s = FS.state;
@@ -24,6 +59,7 @@
         fees: s.fees,
         ft: s.feeTiers,
         yr: s.year,
+        vw: viewSnapshot(),
         client: s.client,
         settings: s.settings,
       }));
@@ -61,7 +97,7 @@
       s.creatieJournal = d.cj || { mods: d.c > 0 ? [{ a: d.c, n: 'Overig' }] : [] };
       s.toolingJournal = d.tj || { mods: d.t > 0 ? [{ a: d.t, n: 'Overig' }] : [] };
       s.urenJournal = d.uj || { mods: [] };
-      s.funnelStages = (Array.isArray(d.fn) && d.fn.length) ? d.fn : FS.state.defaultFunnelStages();
+      s.funnelStages = FS.state.normalizeFunnelStages(d.fn);
       s.year = d.yr || FS.constants.DEFAULT_YEAR;
       s.client = d.client || '';
       s.campaigns = d.D || [];
@@ -69,6 +105,7 @@
       s.fees = d.fees || {};
       s.feeTiers = FS.state.mergeFeeTiers(d.ft);
       s.settings = FS.state.mergeSettings(d.settings);
+      applyViewSnapshot(d.vw, s.year);
       normalize(s.campaigns);
     } catch (_e) {
       // Corrupt storage — leave defaults.
@@ -127,6 +164,7 @@
         fees: s.fees,
         feeTiers: s.feeTiers,
         year: s.year,
+        view: viewSnapshot(),
         user: s.settings,
       },
       campaigns: s.campaigns,
@@ -204,13 +242,12 @@
         } else {
           s.urenJournal = { mods: [] };
         }
-        s.funnelStages = (Array.isArray(settings.funnelStages) && settings.funnelStages.length)
-          ? settings.funnelStages
-          : FS.state.defaultFunnelStages();
+        s.funnelStages = FS.state.normalizeFunnelStages(settings.funnelStages);
         s.fees = settings.fees || {};
         s.feeTiers = FS.state.mergeFeeTiers(settings.feeTiers);
         s.year = settings.year || FS.constants.DEFAULT_YEAR;
         s.settings = FS.state.mergeSettings(settings.user);
+        applyViewSnapshot(settings.view, s.year);
         s.client = (d.meta && d.meta.client) || '';
         s.campaigns = d.campaigns;
         s.nextId = d.nextId || 100;

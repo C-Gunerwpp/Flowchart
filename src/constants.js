@@ -67,11 +67,12 @@
       { id: 'afgerond', name: 'Afgerond', color: '#94A3B8' },
     ],
 
+    /* Funnelstappen worden puur op kleur herkend — geen iconen. */
     FUNNEL_STAGES: [
-      { id: 'awareness', name: 'Awareness', color: '#3B82F6', icon: '👁' },
-      { id: 'interest', name: 'Interest', color: '#0D9488', icon: '💡' },
-      { id: 'consideration', name: 'Consideration', color: '#F59E0B', icon: '🔍' },
-      { id: 'action', name: 'Action', color: '#DC2626', icon: '🛒' },
+      { id: 'awareness', name: 'Awareness', color: '#3B82F6' },
+      { id: 'interest', name: 'Interest', color: '#0D9488' },
+      { id: 'consideration', name: 'Consideration', color: '#F59E0B' },
+      { id: 'action', name: 'Action', color: '#DC2626' },
     ],
 
     /* Geslachten voor doelgroepen (target audiences) op flight-niveau. */

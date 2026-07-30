@@ -38,7 +38,20 @@
   /** Standaard-funnelmodel. Instelbaar per plan; hier de fallback zodat nieuwe
    *  of oudere bestanden altijd een werkend model hebben. */
   function defaultFunnelStages() {
-    return C.FUNNEL_STAGES.map((s) => ({ id: s.id, name: s.name, color: s.color, icon: s.icon || '' }));
+    return C.FUNNEL_STAGES.map((s) => ({ id: s.id, name: s.name, color: s.color }));
+  }
+
+  /** Ingelezen funnelmodel opschonen: alleen id/naam/kleur. Oudere bestanden
+   *  kunnen nog een `icon` bevatten; funnelstappen worden nu puur op kleur
+   *  herkend, dus die wordt weggelaten. */
+  function normalizeFunnelStages(list) {
+    if (!Array.isArray(list) || !list.length) return defaultFunnelStages();
+    const out = [];
+    list.forEach((stage) => {
+      if (!stage || typeof stage !== 'object' || !stage.id) return;
+      out.push({ id: stage.id, name: stage.name || '', color: stage.color || '#64748B' });
+    });
+    return out.length ? out : defaultFunnelStages();
   }
 
   /** Optionele handling-feestaffels. De bestaande `fees` per kanaal blijven
@@ -141,6 +154,7 @@
   }
   FS.state.mergeSettings = mergeSettings;
   FS.state.defaultFunnelStages = defaultFunnelStages;
+  FS.state.normalizeFunnelStages = normalizeFunnelStages;
   FS.state.defaultFeeTiers = defaultFeeTiers;
   FS.state.mergeFeeTiers = mergeFeeTiers;
   FS.state.newFeeTierId = feeTierId;
@@ -164,5 +178,9 @@
     s.selectedFlight = null;
     s.selectedTactic = null;
     s.settings = defaultSettings();
+    // Weergavestand hoort bij het plan: een nieuw plan start op het hele jaar
+    // met zoom 100%.
+    if (FS.viewport && FS.viewport.resetToYear) FS.viewport.resetToYear(s.year);
+    if (FS.ganttInteract && FS.ganttInteract.setZoom) FS.ganttInteract.setZoom(1);
   };
 })(window.FS = window.FS || {});

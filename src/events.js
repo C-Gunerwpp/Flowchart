@@ -751,6 +751,20 @@
         FS.modals.showFlightModal(ci, parseInt(fiEl.dataset.fi, 10));
         return;
       }
+      // Volgorde van tactics wijzigen (bepaalt ook de volgorde in de Gantt).
+      const tacMv = e.target.closest('.m-mv');
+      if (tacMv && s.selectedFlight !== null && s.selectedTactic === null) {
+        if (modalSelectionLocked(s, ci)) return;
+        const flight = s.campaigns[ci].segs[s.selectedFlight];
+        const list = (flight && flight.tac) || [];
+        const from = parseInt(tacMv.dataset.ti, 10);
+        const to = from + (tacMv.dataset.mv === 'up' ? -1 : 1);
+        if (!Number.isFinite(from) || to < 0 || to >= list.length) return;
+        const [moved] = list.splice(from, 1);
+        list.splice(to, 0, moved);
+        FS.modals.showFlightModal(ci, s.selectedFlight);
+        return;
+      }
       const tiEl = e.target.closest('.m-item[data-ti]');
       if (tiEl && s.selectedFlight !== null && s.selectedTactic === null) {
         FS.modals.showTacticModal(ci, s.selectedFlight, parseInt(tiEl.dataset.ti, 10));
@@ -1341,7 +1355,7 @@
         return;
       }
       if (t.classList.contains('fn-add')) {
-        FS.state.funnelStages.push({ id: 'st_' + Math.random().toString(36).slice(2, 8), name: 'Nieuwe stap', color: '#64748B', icon: '' });
+        FS.state.funnelStages.push({ id: 'st_' + Math.random().toString(36).slice(2, 8), name: 'Nieuwe stap', color: '#64748B' });
         afterSettChange();
         return;
       }
