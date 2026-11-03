@@ -617,25 +617,32 @@
         return;
       }
 
-      const bar = t.closest('.g-bar');
-      if (bar) {
-        // Shift-klik = toevoegen aan bulk-selectie i.p.v. selecteren.
-        if (e.shiftKey) {
-          toggleBulkSelect(bar);
-          return;
-        }
+      if (t.closest('.g-bar')) {
         ttEl.classList.remove('vis');
         clearTimeout(ttTimer);
       }
 
       let entity = ganttEntityFromTarget(t);
       if (!entity) return;
+      // Ctrl/Cmd/Shift-klik = onderdeel aan de budgetselectie toevoegen of eruit halen.
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        doubleClickEntity = null;
+        toggleBulkEntity(entity);
+        return;
+      }
       if (e.detail === 1) doubleClickEntity = entity;
       else if (e.detail > 1 && doubleClickEntity) entity = doubleClickEntity;
+      if (bulkSelection.length) clearBulkSelection();
       selectGanttEntity(entity.campId, entity.flightIndex, entity.tacticIndex);
     });
 
+    // Shift-klik op een label zou anders tekst selecteren.
+    gantt.addEventListener('mousedown', (e) => {
+      if ((e.ctrlKey || e.metaKey || e.shiftKey) && e.target.closest('.g-row[data-ci]')) e.preventDefault();
+    });
+
     gantt.addEventListener('dblclick', (e) => {
+      if (e.ctrlKey || e.metaKey || e.shiftKey) return;
       if (e.target.closest('button, .g-toggle')) return;
       const entity = doubleClickEntity || ganttEntityFromTarget(e.target);
       doubleClickEntity = null;
@@ -1566,7 +1573,7 @@
       // Delete / Backspace: bulkselectie of de enkel geselecteerde Gantt-flight.
       if ((e.key === 'Delete' || e.key === 'Backspace') && !isClipboardTarget(e.target)) {
         if (FS.finance && FS.finance.isActive()) return;
-        if (bulkSelection.size > 0) {
+        if (bulkSelection.length > 0 && !overlayOpen()) {
           e.preventDefault();
           bulkDeleteSelection();
           return;
@@ -1577,8 +1584,8 @@
         }
       }
       if (e.key !== 'Escape') return;
-      // Eerst eventuele bulk-selectie wissen
-      if (bulkSelection.size > 0) {
+      // Eerst eventuele bulk-selectie wissen (open modals gaan voor)
+      if (bulkSelection.length > 0 && !overlayOpen()) {
         clearBulkSelection();
         return;
       }
@@ -1681,8 +1688,9 @@
     }, 600);
   }
 
-  /* ============ Bulk-selectie ============ */
-  const bulkSelection = new Set();
+  /* ============ Bulk-/budgetselectie ============ */
+  // Objectreferenties ({camp, flight, tactic}) blijven kloppen na herordenen of verwijderen.
+  let bulkSelection = [];
 
   function deleteSelectedFlight() {
     const modalBg = document.getElementById('modalBg');
@@ -1729,39 +1737,85 @@
     return true;
   }
 
-  function bulkKey(bar) {
-    const ci = bar.dataset.ci;
-    const fi = bar.dataset.fi;
-    const ti = bar.dataset.ti;
-    if (ti !== undefined) return `${ci}:${fi}:${ti}`;
-    if (fi !== undefined) return `${ci}:${fi}`;
-    return `${ci}`;
+  function bulkItemFor(campId, flightIndex, tacticIndex) {
+    const ci = findCampaignIndex(campId);
+    if (ci < 0) return null;
+    const camp = FS.state.campaigns[ci];
+    if (flightIndex == null) return { camp, flight: null, tactic: null };
+    const flight = camp.segs[flightIndex];
+    if (!flight) return null;
+    if (tacticIndex == null) return { camp, flight, tactic: null };
+    const tactic = flight.tac && flight.tac[tacticIndex];
+    return tactic ? { camp, flight, tactic } : null;
   }
 
-  function toggleBulkSelect(bar) {
-    const k = bulkKey(bar);
-    if (bulkSelection.has(k)) bulkSelection.delete(k);
-    else bulkSelection.add(k);
+  function sameBulkItem(x, y) {
+    return x.camp === y.camp && x.flight === y.flight && x.tactic === y.tactic;
+  }
+
+  /** Huidige positie van een geselecteerd onderdeel, of null als het niet meer bestaat. */
+  function locateBulkItem(item) {
+    if (FS.state.campaigns.indexOf(item.camp) < 0) return null;
+    if (!item.flight) return { fi: null, ti: null };
+    const fi = item.camp.segs.indexOf(item.flight);
+    if (fi < 0) return null;
+    if (!item.tactic) return { fi, ti: null };
+    const ti = (item.flight.tac || []).indexOf(item.tactic);
+    return ti < 0 ? null : { fi, ti };
+  }
+
+  function overlayOpen() {
+    return !!document.querySelector('.modal-bg.open, .modal-bg.on');
+  }
+
+  function toggleBulkEntity(entity) {
+    const item = bulkItemFor(entity.campId, entity.flightIndex, entity.tacticIndex);
+    if (!item) return;
+    if (!bulkSelection.length && document.querySelector('#gantt .g-sel')) {
+      // Zoals in een verkenner: het zichtbaar aangeklikte onderdeel telt mee.
+      const s = FS.state;
+      const anchor = bulkItemFor(s.selectedCamp, s.selectedFlight, s.selectedTactic);
+      if (anchor && !sameBulkItem(anchor, item)) bulkSelection.push(anchor);
+    }
+    const index = bulkSelection.findIndex((other) => sameBulkItem(other, item));
+    if (index >= 0) bulkSelection.splice(index, 1);
+    else bulkSelection.push(item);
     refreshBulkUI();
   }
 
   function clearBulkSelection() {
-    bulkSelection.clear();
+    bulkSelection = [];
     refreshBulkUI();
   }
 
   function refreshBulkUI() {
-    document.querySelectorAll('.g-bar.g-bar-sel').forEach((b) => b.classList.remove('g-bar-sel'));
-    bulkSelection.forEach((k) => {
-      const parts = k.split(':');
-      let sel = `.g-bar[data-ci="${parts[0]}"]`;
-      if (parts[1] !== undefined) sel += `[data-fi="${parts[1]}"]`;
-      if (parts[2] !== undefined) sel += `[data-ti="${parts[2]}"]`;
-      document.querySelectorAll(sel).forEach((b) => b.classList.add('g-bar-sel'));
+    // Verwijderde of via undo/laden vervangen onderdelen vallen uit de selectie.
+    const located = [];
+    bulkSelection = bulkSelection.filter((item) => {
+      const loc = locateBulkItem(item);
+      if (loc) located.push({ item, loc });
+      return !!loc;
+    });
+    document.querySelectorAll('#gantt .g-msel, #gantt .g-bar-sel').forEach((el) => el.classList.remove('g-msel', 'g-bar-sel'));
+    located.forEach(({ item, loc }) => {
+      const ci = `[data-ci="${item.camp.id}"]`;
+      let rows = `#gantt .g-row.g-camp${ci}`;
+      let bars = '';
+      if (loc.ti !== null) {
+        const pos = `[data-fi="${loc.fi}"][data-ti="${loc.ti}"]`;
+        rows = `#gantt .g-row.g-tac${ci}${pos}`;
+        bars = `#gantt .g-bar${ci}${pos}`;
+      } else if (loc.fi !== null) {
+        rows = `#gantt .g-row.g-sub${ci}[data-fi="${loc.fi}"]`;
+        bars = `#gantt .g-bar${ci}[data-fi="${loc.fi}"]:not([data-ti])`;
+      }
+      document.querySelectorAll(rows).forEach((el) => el.classList.add('g-msel'));
+      if (bars) document.querySelectorAll(bars).forEach((el) => el.classList.add('g-bar-sel'));
     });
 
     let bar = document.getElementById('bulkBar');
-    if (bulkSelection.size === 0) {
+    document.body.classList.toggle('bulk-on', bulkSelection.length > 0);
+    if (bulkSelection.length === 0) {
       if (bar) bar.remove();
       return;
     }
@@ -1769,45 +1823,57 @@
       bar = document.createElement('div');
       bar.id = 'bulkBar';
       bar.className = 'bulk-bar';
+      bar.setAttribute('role', 'status');
+      bar.setAttribute('aria-live', 'polite');
       document.body.appendChild(bar);
       bar.addEventListener('click', (ev) => {
-        const act = ev.target.dataset && ev.target.dataset.act;
+        const btn = ev.target.closest('[data-act]');
+        const act = btn && btn.dataset.act;
         if (act === 'del') bulkDeleteSelection();
         else if (act === 'clear') clearBulkSelection();
       });
     }
-    bar.innerHTML = `<span class="bb-count">${bulkSelection.size} geselecteerd</span>`
-      + `<button class="mbtn del" data-act="del">🗑 Verwijder</button>`
-      + `<button class="mbtn" data-act="clear">✕ Wis</button>`;
+    const info = FS.calc.selectionBudget(bulkSelection);
+    const { escapeHtml: esc, formatCurrency: fC } = FS.utils;
+    const countLabel = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const types = [];
+    if (info.counts.campaign) types.push(countLabel(info.counts.campaign, 'campagne', 'campagnes'));
+    if (info.counts.flight) types.push(countLabel(info.counts.flight, 'flight', 'flights'));
+    if (info.counts.tactic) types.push(countLabel(info.counts.tactic, 'tactic', 'tactics'));
+    let note = '';
+    if (info.covered) note = `<span class="bb-note warn">${info.covered} al inbegrepen in bovenliggende selectie</span>`;
+    else if (bulkSelection.length === 1) note = '<span class="bb-note">Ctrl+klik om meer toe te voegen</span>';
+    const part = (cls, label, value, title) => `<div class="bb-part ${cls}" title="${esc(title)}">`
+      + `<span class="bb-lbl">${label}</span><strong>${esc(fC(value))}</strong></div>`;
+    bar.innerHTML = `<div class="bb-sum" title="Media + handling + creatie + tooling"><span class="bb-lbl">Totaal</span>`
+      + `<strong class="bb-total">${esc(fC(info.total))}</strong></div>`
+      + `<div class="bb-split">`
+      + part('bb-media', 'Media', info.media, 'Netto media')
+      + part('bb-fee', 'Handling', info.fee + info.uren, `Handling fee ${fC(info.fee)} + uren ${fC(info.uren)}`)
+      + part('bb-crea', 'Creatie', info.creatie, 'Creatie')
+      + part('bb-tool', 'Tooling', info.tooling, 'Tooling')
+      + `</div>`
+      + `<div class="bb-meta"><span class="bb-count">${esc(types.join(' · '))}</span>${note}</div>`
+      + `<button class="mbtn del" data-act="del" title="Selectie verwijderen">🗑<span class="bb-btn-txt"> Verwijder</span></button>`
+      + `<button class="bb-close" data-act="clear" title="Selectie opheffen (Esc)" aria-label="Selectie opheffen">✕</button>`;
   }
+  FS.events.refreshBulkSelection = refreshBulkUI;
 
   function bulkDeleteSelection() {
-    if (!bulkSelection.size) return;
+    if (!bulkSelection.length) return;
     FS.modals.showConfirm(
-      `<b>${bulkSelection.size}</b> item(s) verwijderen?`,
-      () => {
-        const items = Array.from(bulkSelection).map((k) => {
-          const parts = k.split(':').map((p) => parseInt(p, 10));
-          return { ci: parts[0], fi: parts[1], ti: parts[2], depth: parts.length };
+      `<b>${bulkSelection.length}</b> item(s) verwijderen?`,
+      (ok) => {
+        if (!ok) return;
+        // Op objectreferentie: de volgorde van verwijderen maakt niet uit.
+        bulkSelection.forEach((item) => {
+          const list = item.tactic ? item.flight.tac : item.flight ? item.camp.segs : FS.state.campaigns;
+          const index = list ? list.indexOf(item.tactic || item.flight || item.camp) : -1;
+          if (index >= 0) list.splice(index, 1);
         });
-        items.sort((a, b) => {
-          if (a.depth !== b.depth) return b.depth - a.depth;
-          if (a.ci !== b.ci) return b.ci - a.ci;
-          if ((a.fi || 0) !== (b.fi || 0)) return (b.fi || 0) - (a.fi || 0);
-          return (b.ti || 0) - (a.ti || 0);
-        });
-        items.forEach((it) => {
-          const idx = findCampaignIndex(it.ci);
-          if (idx < 0) return;
-          if (it.depth === 3) {
-            const f = FS.state.campaigns[idx].segs[it.fi];
-            if (f && f.tac) f.tac.splice(it.ti, 1);
-          } else if (it.depth === 2) {
-            FS.state.campaigns[idx].segs.splice(it.fi, 1);
-          } else {
-            FS.state.campaigns.splice(idx, 1);
-          }
-        });
+        FS.state.selectedCamp = null;
+        FS.state.selectedFlight = null;
+        FS.state.selectedTactic = null;
         clearBulkSelection();
         FS.calc.calcJaar();
         FS.render.render();
@@ -1838,7 +1904,7 @@
         ['Ctrl+T', 'Spring naar huidige week'],
         ['Ctrl+Z', 'Ongedaan maken'],
         ['Ctrl+Y of Ctrl+Shift+Z', 'Opnieuw'],
-        ['Shift+klik op bar', 'Toevoegen aan selectie'],
+        ['Ctrl+klik', 'Campagne, flight of tactic aan budgetselectie toevoegen (ook Shift+klik)'],
         ['Delete of Backspace', 'Verwijder geselecteerde flight / bulkselectie'],
         ['Klik op campagne/flight', 'Selecteren voor kopiëren'],
         ['Dubbelklik op campagne/flight', 'Details openen'],

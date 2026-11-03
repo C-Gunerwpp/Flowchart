@@ -673,6 +673,60 @@
     }, { amount: 0, fee: 0 });
   }
 
+  /** Kostenopbouw van een Gantt-selectie ({camp, flight?, tactic?}), actual-leidend
+   *  zoals de summary-kaarten. Onderdelen binnen een geselecteerde ouder tellen niet dubbel. */
+  function selectionBudget(items) {
+    const list = items || [];
+    const result = {
+      total: 0, media: 0, fee: 0, uren: 0, creatie: 0, tooling: 0,
+      counts: { campaign: 0, flight: 0, tactic: 0 }, covered: 0,
+    };
+    const components = list.length ? feeBreakdown().components : [];
+    const excl = feeMode() === 'excl';
+    list.forEach((item) => {
+      if (item.tactic) result.counts.tactic++;
+      else if (item.flight) result.counts.flight++;
+      else result.counts.campaign++;
+      const inParent = list.some((other) => other !== item && other.camp === item.camp && (
+        (!other.flight && !!item.flight)
+        || (!!item.tactic && !other.tactic && other.flight === item.flight)
+      ));
+      if (inParent) {
+        result.covered++;
+        return;
+      }
+
+      const campIndex = FS.state.campaigns.indexOf(item.camp);
+      const flightIndex = item.flight ? item.camp.segs.indexOf(item.flight) : null;
+      const tacticIndex = item.tactic ? (item.flight.tac || []).indexOf(item.tactic) : null;
+      const fee = components.reduce((sum, row) => sum + (row.campIndex === campIndex
+        && (flightIndex === null || row.flightIndex === flightIndex)
+        && (tacticIndex === null || row.tacticIndex === tacticIndex) ? row.fee : 0), 0);
+
+      let base;
+      if (item.tactic) {
+        // Binnen een geactualiseerde flight telt het verdeelde tactic-actual.
+        const plan = flightIsActual(item.flight) ? planFlightActualDistribution(item.flight, item.flight.actualBudget) : null;
+        const row = plan && plan.ok ? plan.rows.find((r) => r.tactic === item.tactic) : null;
+        base = row ? row.amount : Number(item.tactic.b) || 0;
+      } else {
+        base = item.flight ? flightEffective(item.flight) : campaignEffective(item.camp);
+      }
+      base = Math.max(0, base);
+      result.fee += fee;
+      result.media += excl ? base : base - fee;
+
+      if (item.tactic) return;
+      (item.flight ? [item.flight] : item.camp.segs || []).forEach((flight) => {
+        result.creatie += Number(flight.cb) || 0;
+        result.tooling += Number(flight.tc) || 0;
+        result.uren += Number(flight.ub) || 0;
+      });
+    });
+    result.total = result.media + result.fee + result.uren + result.creatie + result.tooling;
+    return result;
+  }
+
   /** Backwards-compatible tactic helper. In staffelmodus is oudercontext nodig
    *  omdat het toepasselijke tarief van het hele campaign/flightbudget afhangt. */
   function tacticFee(tactic, camp, flight) {
@@ -736,6 +790,7 @@
     campaignFlightSum,
     campaignBudget,
     grandTotal,
+    selectionBudget,
     feeMode,
     btwRate,
     btwPctValue,

@@ -447,6 +447,7 @@
       }
     }
     document.getElementById('gantt').innerHTML = html;
+    if (FS.events && FS.events.refreshBulkSelection) FS.events.refreshBulkSelection();
     requestAnimationFrame(positionNowLine);
   }
 

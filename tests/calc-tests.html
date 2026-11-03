@@ -699,6 +699,82 @@
     close(before, 5000, 0.001);
   });
 
+  /* ============ selectionBudget ============ */
+  group('selectionBudget');
+  // Vaste campagne zonder tactics (geen fee) + losse campagne met TV-tactics (10%).
+  function selectionPlan() {
+    const tactic = { b: 1100, ch: { tv: 1100 } };
+    const flight = { b: 0, cb: 500, tc: 200, ub: 300, tac: [{ b: 2200, ch: { tv: 2200 } }, tactic] };
+    const fixed = { id: 1, budget: 10000, segs: [{ b: 4000, cb: 1000, tc: 0, ub: 0, tac: [] }] };
+    const loose = { id: 2, budget: 0, segs: [flight] };
+    setup([fixed, loose], { tv: 0.1 });
+    return { tactic, flight, fixed, loose };
+  }
+  test('lege selectie = 0', () => {
+    setup([]);
+    const res = FS.calc.selectionBudget([]);
+    eq(res.total, 0);
+    eq(res.covered, 0);
+  });
+  test('splitst media, handling fee, uren, creatie en tooling (incl. CTC)', () => {
+    const p = selectionPlan();
+    const res = FS.calc.selectionBudget([
+      { camp: p.fixed, flight: null, tactic: null },
+      { camp: p.loose, flight: p.flight, tactic: null },
+    ]);
+    close(res.media, 10000 + 3000);
+    close(res.fee, 300);
+    eq(res.uren, 300);
+    eq(res.creatie, 1500);
+    eq(res.tooling, 200);
+    close(res.total, 15300);
+    eq(JSON.stringify(res.counts), JSON.stringify({ campaign: 1, flight: 1, tactic: 0 }));
+  });
+  test('excl. CTC: fee komt bovenop het budget', () => {
+    const p = selectionPlan();
+    useExclCtc();
+    const res = FS.calc.selectionBudget([
+      { camp: p.fixed, flight: null, tactic: null },
+      { camp: p.loose, flight: p.flight, tactic: null },
+    ]);
+    close(res.media, 13300);
+    close(res.fee, 330);
+    close(res.total, 13300 + 330 + 300 + 1500 + 200);
+  });
+  test('tactic telt eigen media en fee, geen flightkosten', () => {
+    const p = selectionPlan();
+    const res = FS.calc.selectionBudget([{ camp: p.loose, flight: p.flight, tactic: p.tactic }]);
+    close(res.media, 1000);
+    close(res.fee, 100);
+    eq(res.creatie + res.tooling + res.uren, 0);
+    close(res.total, 1100);
+  });
+  test('onderdelen binnen een geselecteerde ouder tellen niet dubbel', () => {
+    const p = selectionPlan();
+    const res = FS.calc.selectionBudget([
+      { camp: p.loose, flight: null, tactic: null },
+      { camp: p.loose, flight: p.flight, tactic: null },
+      { camp: p.loose, flight: p.flight, tactic: p.tactic },
+    ]);
+    eq(res.covered, 2);
+    close(res.media, 3000);
+    close(res.fee, 300);
+    close(res.total, 3300 + 300 + 500 + 200);
+  });
+  test('alle campagnes geselecteerd = media en fee van de summary', () => {
+    const p = selectionPlan();
+    const bd = FS.calc.budgetBreakdown();
+    const res = FS.calc.selectionBudget([p.fixed, p.loose].map((camp) => ({ camp, flight: null, tactic: null })));
+    close(res.media, bd.media);
+    close(res.fee, bd.fee);
+  });
+  test('tactic in geactualiseerde flight telt het verdeelde actual', () => {
+    const p = selectionPlan();
+    Object.assign(p.flight, { actualized: true, actualBudget: 3000 });
+    const res = FS.calc.selectionBudget([{ camp: p.loose, flight: p.flight, tactic: p.tactic }]);
+    close(res.media + res.fee, 1000);
+  });
+
   /* ============ budgetJaar ============ */
   group('budgetJaar / calcJaar');
   test('basis + mods', () => {
