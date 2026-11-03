@@ -266,6 +266,12 @@
           if (!t.bp) t.bp = {};
         });
         clampTactics(f);
+        // Oudere plannen konden een flight als actual markeren zonder bedrag.
+        // De rest van de app viel dan terug op de planning, maar Finance leest
+        // alleen het expliciete bedrag en toonde daardoor € 0.
+        if (f.actualized && f.actualBudget == null) {
+          f.actualBudget = FS.calc ? FS.calc.flightBudget(f) : (Number(f.b) || 0);
+        }
       });
       if (legacyCampaignFinance && camp.segs && camp.segs.length) {
         const legacy = normalizeFlightFinance(legacyCampaignFinance, `legacy_${camp.id}`);

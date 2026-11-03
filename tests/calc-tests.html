@@ -316,6 +316,21 @@
     eq(campaigns[0].segs[1].finance.status, 'completed');
     eq(campaigns[0].financeStatus, undefined);
   });
+  test('oude actual zonder bedrag krijgt het planned budget als actual', () => {
+    const campaigns = [{ id: 78, budget: 0, segs: [
+      { sd: '2026-01-01', ed: '2026-01-02', b: 13443, actualized: true, actualizedAt: '01-04-2026' },
+      { sd: '2026-01-01', ed: '2026-01-02', b: 0, tac: [{ sd: '2026-01-01', ed: '2026-01-02', b: 2500 }], actualized: true },
+      { sd: '2026-01-01', ed: '2026-01-02', b: 5000, actualized: true, actualBudget: 0 },
+      { sd: '2026-01-01', ed: '2026-01-02', b: 4000 },
+    ] }];
+    FS.utils.normalize(campaigns);
+    eq(campaigns[0].segs[0].actualBudget, 13443);
+    eq(FS.calc.flightActual(campaigns[0].segs[0]), 13443);
+    eq(FS.finance.flightSnapshot(campaigns[0], campaigns[0].segs[0], 0).actualized, true);
+    eq(campaigns[0].segs[1].actualBudget, 2500);
+    eq(campaigns[0].segs[2].actualBudget, 0);
+    eq(campaigns[0].segs[3].actualBudget, undefined);
+  });
 
   /* ============ channelFee ============ */
   group('channelFee');
